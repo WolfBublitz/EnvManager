@@ -131,8 +131,13 @@ log() {
 # └────────────────────────────────────────────────────────────┘
 
 print_app_header() {
-    gum style --padding "0 10" --border normal --foreground "#00F" --bold "EvnManager"
+    if gump_exists; then
+        gum style --padding "0 10" --border normal --foreground "#00F" --bold "EvnManager"
+    else
+        echo -e "${BOLD}${BLUE}EnvManager${RESET}"
+    fi
 }
+    
 
 print_header() {
     local message="$1"
