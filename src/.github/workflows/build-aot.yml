@@ -1,0 +1,45 @@
+name: Build .NET AOT App
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+
+jobs:
+  build:
+    name: Build ${{ matrix.os }} AOT
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Publish AOT
+        run: |
+          dotnet publish src/EnvManager.csproj \
+            -c Release \
+            -r ${{ matrix.os == 'ubuntu-latest' && 'linux-x64' ||
+                  matrix.os == 'windows-latest' && 'win-x64' ||
+                  matrix.os == 'macos-latest' && 'osx-x64' }} \
+            /p:PublishAot=true \
+            /p:StripSymbols=true \
+            /p:IlcOptimizationPreference=Speed \
+            /p:DebuggerSupport=false \
+            /p:EnableUnsafeBinaryFormatterSerialization=false
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: aot-${{ matrix.os }}
+          path: src/bin/Release/net10.0/*/
