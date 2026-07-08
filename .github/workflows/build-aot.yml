@@ -10,7 +10,7 @@ on:
 
 jobs:
   build:
-    name: Build ${{ matrix.os }} AOT
+    name: Build ${{ matrix.rid }} AOT
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
