@@ -26,11 +26,13 @@ jobs:
           dotnet-version: 10.0.x
 
       - name: Restore
+        working-directory: src
         run: dotnet restore
 
       - name: Publish AOT
+        working-directory: src
         run: |
-          dotnet publish src/EnvManager.csproj \
+          dotnet publish EnvManager.csproj \
             -c Release \
             -r ${{ matrix.os == 'ubuntu-latest' && 'linux-x64' ||
                   matrix.os == 'windows-latest' && 'win-x64' ||
