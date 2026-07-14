@@ -9,8 +9,8 @@ internal sealed class HomebrewPackageManager(Logger logger) : IPackageManager
     {
         using Process process = new("brew", "update");
 
-        process.InfoOutput.Subscribe(o => logger.Info(["Homebrew"], o));
-        process.ErrorOutput.Subscribe(o => logger.Error(["Homebrew"], o));
+        process.InfoOutput.Subscribe(o => logger.Info(["brew"], o));
+        process.ErrorOutput.Subscribe(o => logger.Error(["brew"], o));
 
         await process.RunAsync().ConfigureAwait(false);
     }
@@ -19,8 +19,8 @@ internal sealed class HomebrewPackageManager(Logger logger) : IPackageManager
     {
         using Process process = new("brew", "install", "--no-ask", packageName);
 
-        process.InfoOutput.Subscribe(o => logger.Info(["Homebrew"], o));
-        process.ErrorOutput.Subscribe(o => logger.Error(["Homebrew"], o));
+        process.InfoOutput.Subscribe(o => logger.Info(["brew"], o));
+        process.ErrorOutput.Subscribe(o => logger.Error(["brew"], o));
 
         await process.RunAsync().ConfigureAwait(false);
     }
@@ -29,8 +29,8 @@ internal sealed class HomebrewPackageManager(Logger logger) : IPackageManager
     {
         using Process process = new("brew", "upgrade", "--no-ask", packageName);
 
-        process.InfoOutput.Subscribe(o => logger.Info(["Homebrew"], o));
-        process.ErrorOutput.Subscribe(o => logger.Error(["Homebrew"], o));
+        process.InfoOutput.Subscribe(o => logger.Info(["brew"], o));
+        process.ErrorOutput.Subscribe(o => logger.Error(["brew"], o));
 
         await process.RunAsync().ConfigureAwait(false);
     }
@@ -39,8 +39,8 @@ internal sealed class HomebrewPackageManager(Logger logger) : IPackageManager
     {
         using Process process = new("brew", "uninstall", "--no-ask", packageName);
 
-        process.InfoOutput.Subscribe(o => logger.Info(["Homebrew"], o));
-        process.ErrorOutput.Subscribe(o => logger.Error(["Homebrew"], o));
+        process.InfoOutput.Subscribe(o => logger.Info(["brew"], o));
+        process.ErrorOutput.Subscribe(o => logger.Error(["brew"], o));
 
         await process.RunAsync().ConfigureAwait(false);
     }
@@ -49,9 +49,25 @@ internal sealed class HomebrewPackageManager(Logger logger) : IPackageManager
     {
         using Process process = new("brew", "tap", name);
 
-        process.InfoOutput.Subscribe(o => logger.Info(["Homebrew"], o));
-        process.ErrorOutput.Subscribe(o => logger.Error(["Homebrew"], o));
+        process.InfoOutput.Subscribe(o => logger.Info(["brew"], o));
+        process.ErrorOutput.Subscribe(o => logger.Error(["brew"], o));
 
         await process.RunAsync().ConfigureAwait(false);
+    }
+
+    public static async Task<bool> IsAvailableAsync()
+    {
+        using Process process = new("brew", "--version");
+
+        try
+        {
+            await process.RunAsync().ConfigureAwait(false);
+
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
     }
 }

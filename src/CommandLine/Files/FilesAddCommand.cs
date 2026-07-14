@@ -19,9 +19,9 @@ internal sealed class FilesAddCommand : BaseCommand
 
     private readonly GitRepository gitRepository;
 
-    private readonly CancellationServices cancellationServices;
+    private readonly CancellationService cancellationServices;
 
-    public FilesAddCommand(GitRepository gitRepository, CancellationServices cancellationServices)
+    public FilesAddCommand(GitRepository gitRepository, CancellationService cancellationServices)
         : base("add", "Add files")
     {
         this.gitRepository = gitRepository;

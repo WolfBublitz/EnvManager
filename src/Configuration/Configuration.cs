@@ -1,9 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Text.Json;
 using System.Text.Json.Serialization;
-using System.Threading.Tasks;
 
 internal sealed class Configuration
 {
@@ -21,5 +19,6 @@ internal sealed class Configuration
 
     public List<string> Tools { get; set; } = [];
 
-    public HomebrewConfiguration? Homebrew { get; set; }
+    [JsonPropertyName("packageManagers")]
+    public PackageManagerConfiguration? PackageManager { get; init; }
 }

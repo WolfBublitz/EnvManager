@@ -45,7 +45,8 @@ containerBuilder.Register(ctx =>
     return new GitRepository(Configuration.WorkingDirectory, Configuration.RepositoryDirectory, logger);
 }).SingleInstance();
 containerBuilder.RegisterType<KeyboardService>().SingleInstance();
-containerBuilder.RegisterType<CancellationServices>().SingleInstance();
+containerBuilder.RegisterType<CancellationService>().SingleInstance();
+containerBuilder.RegisterType<PackageManagerFactory>().SingleInstance();
 
 await using IContainer container = containerBuilder.Build();
 

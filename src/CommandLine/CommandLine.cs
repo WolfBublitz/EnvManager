@@ -4,7 +4,7 @@ using System.Threading.Tasks;
 using Humanizer;
 using Spectre.Console;
 
-internal sealed class CommandLine(RootCommand rootCommand)
+internal sealed class CommandLine(RootCommand rootCommand, CancellationService cancellationService)
 {
     private static readonly InvocationConfiguration invocationConfiguration = new()
     {
@@ -17,7 +17,7 @@ internal sealed class CommandLine(RootCommand rootCommand)
 
         try
         {
-            return await result.InvokeAsync(invocationConfiguration).ConfigureAwait(false);
+            return await result.InvokeAsync(invocationConfiguration, cancellationService.CancellationToken).ConfigureAwait(false);
         }
         catch (Exception exception)
         {

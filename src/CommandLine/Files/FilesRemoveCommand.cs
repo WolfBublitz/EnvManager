@@ -17,9 +17,9 @@ internal sealed class FilesRemoveCommand : BaseCommand
     };
 
     private readonly GitRepository gitRepository;
-    private readonly CancellationServices cancellationServices;
+    private readonly CancellationService cancellationServices;
 
-    public FilesRemoveCommand(GitRepository gitRepository, CancellationServices cancellationServices)
+    public FilesRemoveCommand(GitRepository gitRepository, CancellationService cancellationServices)
         : base("remove", "Remove files")
     {
         this.gitRepository = gitRepository;
