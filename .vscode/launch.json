@@ -9,7 +9,7 @@
             "type": "coreclr",
             "request": "launch",
             "preLaunchTask": "dotnet: build",
-            "program": "${workspaceFolder}/src/bin/Debug/net10.0/EnvManager.dll",
+            "program": "${workspaceFolder}/src/bin/Debug/net11.0/EnvManager.dll",
             "args": [],
             "cwd": "${workspaceFolder}",
             "stopAtEntry": false,
@@ -20,18 +20,51 @@
             "type": "coreclr",
             "request": "launch",
             "preLaunchTask": "dotnet: build",
-            "program": "${workspaceFolder}/src/bin/Debug/net10.0/EnvManager.dll",
+            "program": "${workspaceFolder}/src/bin/Debug/net11.0/EnvManager.dll",
             "args": ["init"],
             "cwd": "${workspaceFolder}",
             "stopAtEntry": false,
             "console": "integratedTerminal"
         },
         {
-            "name": "add",
+            "name": "clone",
             "type": "coreclr",
             "request": "launch",
             "preLaunchTask": "dotnet: build",
-            "program": "${workspaceFolder}/src/bin/Debug/net10.0/EnvManager.dll",
+            "program": "${workspaceFolder}/src/bin/Debug/net11.0/EnvManager.dll",
+            "args": ["clone", "${input:repositoryUrl}"],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": false,
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "variable set",
+            "type": "coreclr",
+            "request": "launch",
+            "preLaunchTask": "dotnet: build",
+            "program": "${workspaceFolder}/src/bin/Debug/net11.0/EnvManager.dll",
+            "args": ["variable", "set", "FOO", "bar"],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": false,
+            "console": "internalConsole"
+        },
+        {
+            "name": "variable list",
+            "type": "coreclr",
+            "request": "launch",
+            "preLaunchTask": "dotnet: build",
+            "program": "${workspaceFolder}/src/bin/Debug/net11.0/EnvManager.dll",
+            "args": ["variable", "list"],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": false,
+            "console": "internalConsole"
+        },
+        {
+            "name": "tools add",
+            "type": "coreclr",
+            "request": "launch",
+            "preLaunchTask": "dotnet: build",
+            "program": "${workspaceFolder}/src/bin/Debug/net11.0/EnvManager.dll",
             "args": ["tools", "add", "git"],
             "cwd": "${workspaceFolder}",
             "stopAtEntry": false,
@@ -42,66 +75,56 @@
             "type": "coreclr",
             "request": "launch",
             "preLaunchTask": "dotnet: build",
-            "program": "${workspaceFolder}/src/bin/Debug/net10.0/EnvManager.dll",
+            "program": "${workspaceFolder}/src/bin/Debug/net11.0/EnvManager.dll",
             "args": ["tools", "list"],
             "cwd": "${workspaceFolder}",
             "stopAtEntry": false,
             "console": "internalConsole"
         },
         {
-            "name": "files list",
+            "name": "push",
             "type": "coreclr",
             "request": "launch",
             "preLaunchTask": "dotnet: build",
-            "program": "${workspaceFolder}/src/bin/Debug/net10.0/EnvManager.dll",
-            "args": ["files", "list"],
+            "program": "${workspaceFolder}/src/bin/Debug/net11.0/EnvManager.dll",
+            "args": ["push"],
             "cwd": "${workspaceFolder}",
             "stopAtEntry": false,
             "console": "internalConsole"
         },
         {
-            "name": "files add",
+            "name": "pull",
             "type": "coreclr",
             "request": "launch",
             "preLaunchTask": "dotnet: build",
-            "program": "${workspaceFolder}/src/bin/Debug/net10.0/EnvManager.dll",
-            "args": ["files", "add"],
+            "program": "${workspaceFolder}/src/bin/Debug/net11.0/EnvManager.dll",
+            "args": ["pull"],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": false,
+            "console": "internalConsole"
+        },
+        {
+            "name": "switch",
+            "type": "coreclr",
+            "request": "launch",
+            "preLaunchTask": "dotnet: build",
+            "program": "${workspaceFolder}/src/bin/Debug/net11.0/EnvManager.dll",
+            "args": ["switch", "${input:environmentName}"],
             "cwd": "${workspaceFolder}",
             "stopAtEntry": false,
             "console": "integratedTerminal"
+        }
+    ],
+    "inputs": [
+        {
+            "id": "repositoryUrl",
+            "type": "promptString",
+            "description": "The URL of the environment configuration repository to clone."
         },
         {
-            "name": "files push",
-            "type": "coreclr",
-            "request": "launch",
-            "preLaunchTask": "dotnet: build",
-            "program": "${workspaceFolder}/src/bin/Debug/net10.0/EnvManager.dll",
-            "args": ["files", "push"],
-            "cwd": "${workspaceFolder}",
-            "stopAtEntry": false,
-            "console": "internalConsole"
-        },
-        {
-            "name": "files commit",
-            "type": "coreclr",
-            "request": "launch",
-            "preLaunchTask": "dotnet: build",
-            "program": "${workspaceFolder}/src/bin/Debug/net10.0/EnvManager.dll",
-            "args": ["files", "commit"],
-            "cwd": "${workspaceFolder}",
-            "stopAtEntry": false,
-            "console": "internalConsole"
-        },
-        {
-            "name": "files list",
-            "type": "coreclr",
-            "request": "launch",
-            "preLaunchTask": "dotnet: build",
-            "program": "${workspaceFolder}/src/bin/Debug/net10.0/EnvManager.dll",
-            "args": ["files", "list"],
-            "cwd": "${workspaceFolder}",
-            "stopAtEntry": false,
-            "console": "internalConsole"
+            "id": "environmentName",
+            "type": "promptString",
+            "description": "The name of the environment to switch to."
         }
     ]
 }

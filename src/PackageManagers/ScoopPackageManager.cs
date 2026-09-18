@@ -1,63 +1,44 @@
-using System.Threading.Tasks;
-using R3;
+// ┌────────────────────────────────────────────────────────────────────────────────┐
+// │ File: ScoopPackageManager.cs                                                  │
+// │ Author: EnvManager Contributors                                                │
+// │ Created: 2026-09-18                                                            │
+// └────────────────────────────────────────────────────────────────────────────────┘
 
-internal sealed class ScoopPackageManager(Logger logger) : IPackageManager
+namespace EnvManager.PackageManagers;
+
+/// <summary>
+/// <see cref="IPackageManager"/> implementation for Windows using
+/// <see href="https://scoop.sh">Scoop</see>.
+/// </summary>
+public sealed class ScoopPackageManager : PackageManagerBase
 {
-    private readonly Logger logger = logger;
+    // ┌────────────────────────────────────────────────────────────────────────────────┐
+    // │ public Property                                                                 │
+    // └────────────────────────────────────────────────────────────────────────────────┘
 
-    public Task InstallPackageAsync(string packageName)
-    {
-        using Process process = new("scoop", $"install {packageName}");
+    /// <inheritdoc/>
+    public override string Name => "scoop";
 
-        process.InfoOutput.Subscribe(o => logger.Info(["Scoop"], o));
-        process.ErrorOutput.Subscribe(o => logger.Error(["Scoop"], o));
+    // ┌────────────────────────────────────────────────────────────────────────────────┐
+    // │ protected Property                                                              │
+    // └────────────────────────────────────────────────────────────────────────────────┘
 
-        return process.RunAsync();
-    }
+    /// <inheritdoc/>
+    protected override string Executable => "scoop";
 
-    public Task UninstallPackageAsync(string packageName)
-    {
-        using Process process = new("scoop", $"uninstall {packageName}");
+    // ┌────────────────────────────────────────────────────────────────────────────────┐
+    // │ protected Method                                                                │
+    // └────────────────────────────────────────────────────────────────────────────────┘
 
-        process.InfoOutput.Subscribe(o => logger.Info(["Scoop"], o));
-        process.ErrorOutput.Subscribe(o => logger.Error(["Scoop"], o));
+    /// <inheritdoc/>
+    protected override string[] BuildInstallArguments(string toolName, string? version)
+        => ["install", version is null ? toolName : $"{toolName}@{version}"];
 
-        return process.RunAsync();
-    }
+    /// <inheritdoc/>
+    protected override string[] BuildRemoveArguments(string toolName)
+        => ["uninstall", toolName];
 
-    public Task UpdateAsync()
-    {
-        using Process process = new("scoop", "update");
-
-        process.InfoOutput.Subscribe(o => logger.Info(["Scoop"], o));
-        process.ErrorOutput.Subscribe(o => logger.Error(["Scoop"], o));
-
-        return process.RunAsync();
-    }
-
-    public Task UpdatePackageAsync(string packageName)
-    {
-        using Process process = new("scoop", $"update {packageName}");
-
-        process.InfoOutput.Subscribe(o => logger.Info(["Scoop"], o));
-        process.ErrorOutput.Subscribe(o => logger.Error(["Scoop"], o));
-
-        return process.RunAsync();  
-    }
-
-    public static async Task<bool> IsAvailableAsync()
-    {
-        using Process process = new("scoop", "--version");
-
-        try
-        {
-            await process.RunAsync().ConfigureAwait(false);
-
-            return true;
-        }
-        catch
-        {
-            return false;
-        }
-    }
+    /// <inheritdoc/>
+    protected override string[] BuildUpdateArguments(string toolName)
+        => ["update", toolName];
 }

@@ -1,30 +1,37 @@
 // ┌────────────────────────────────────────────────────────────────────────────────┐
-// │ File: ToolsCommand.cs                                                        │
+// │ File: EnvManagerRootCommand.cs                                               │
 // │ Author: EnvManager Contributors                                                │
 // │ Created: 2026-09-18                                                            │
 // └────────────────────────────────────────────────────────────────────────────────┘
 
 using System.CommandLine;
 
-namespace EnvManager.CommandLine.Tools;
+using EnvManager.CommandLine.Tools;
+using EnvManager.CommandLine.Variable;
+
+namespace EnvManager.CommandLine;
 
 /// <summary>
-/// The <c>tools</c> command groups the subcommands used to manage tools: <c>add</c>,
-/// <c>remove</c>, <c>list</c>, and <c>update</c>.
+/// The top-level EnvManager CLI command, wiring together every subcommand described in
+/// the project specification: <c>clone</c>, <c>init</c>, <c>variable</c>, <c>tools</c>,
+/// <c>push</c>, <c>pull</c>, and <c>switch</c>.
 /// </summary>
-public sealed class ToolsCommand : Command
+public sealed class EnvManagerRootCommand : RootCommand
 {
     // ┌────────────────────────────────────────────────────────────────────────────────┐
     // │ public Constructor                                                              │
     // └────────────────────────────────────────────────────────────────────────────────┘
 
-    /// <summary>Initializes a new instance of the <see cref="ToolsCommand"/> class.</summary>
-    public ToolsCommand()
-        : base("tools", "Manage tools and configurations.")
+    /// <summary>Initializes a new instance of the <see cref="EnvManagerRootCommand"/> class.</summary>
+    public EnvManagerRootCommand()
+        : base("Manages user environment configurations (variables, tools, and shell setup) backed by a git repository.")
     {
-        this.Add(new ToolsAddCommand());
-        this.Add(new ToolsRemoveCommand());
-        this.Add(new ToolsListCommand());
-        this.Add(new ToolsUpdateCommand());
+        this.Add(new CloneCommand());
+        this.Add(new InitCommand());
+        this.Add(new VariableCommand());
+        this.Add(new ToolsCommand());
+        this.Add(new PushCommand());
+        this.Add(new PullCommand());
+        this.Add(new SwitchCommand());
     }
 }

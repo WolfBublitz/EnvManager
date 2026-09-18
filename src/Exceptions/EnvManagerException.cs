@@ -1,30 +1,40 @@
 // ┌────────────────────────────────────────────────────────────────────────────────┐
-// │ File: ToolsCommand.cs                                                        │
+// │ File: EnvManagerException.cs                                                   │
 // │ Author: EnvManager Contributors                                                │
 // │ Created: 2026-09-18                                                            │
 // └────────────────────────────────────────────────────────────────────────────────┘
 
-using System.CommandLine;
+using System;
 
-namespace EnvManager.CommandLine.Tools;
+namespace EnvManager.Exceptions;
 
 /// <summary>
-/// The <c>tools</c> command groups the subcommands used to manage tools: <c>add</c>,
-/// <c>remove</c>, <c>list</c>, and <c>update</c>.
+/// Base class for all recoverable, user-facing errors raised by EnvManager. Callers at
+/// the CLI boundary catch this type to render a friendly, color-coded error message
+/// instead of an unhandled stack trace.
 /// </summary>
-public sealed class ToolsCommand : Command
+public class EnvManagerException : Exception
 {
     // ┌────────────────────────────────────────────────────────────────────────────────┐
     // │ public Constructor                                                              │
     // └────────────────────────────────────────────────────────────────────────────────┘
 
-    /// <summary>Initializes a new instance of the <see cref="ToolsCommand"/> class.</summary>
-    public ToolsCommand()
-        : base("tools", "Manage tools and configurations.")
+    /// <summary>
+    /// Initializes a new instance of the <see cref="EnvManagerException"/> class.
+    /// </summary>
+    /// <param name="message">A human-readable description of the error.</param>
+    public EnvManagerException(string message)
+        : base(message)
     {
-        this.Add(new ToolsAddCommand());
-        this.Add(new ToolsRemoveCommand());
-        this.Add(new ToolsListCommand());
-        this.Add(new ToolsUpdateCommand());
+    }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="EnvManagerException"/> class.
+    /// </summary>
+    /// <param name="message">A human-readable description of the error.</param>
+    /// <param name="innerException">The exception that caused the current error.</param>
+    public EnvManagerException(string message, Exception innerException)
+        : base(message, innerException)
+    {
     }
 }

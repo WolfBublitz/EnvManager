@@ -1,30 +1,30 @@
 // ┌────────────────────────────────────────────────────────────────────────────────┐
-// │ File: ToolsCommand.cs                                                        │
+// │ File: VariableCommand.cs                                                     │
 // │ Author: EnvManager Contributors                                                │
 // │ Created: 2026-09-18                                                            │
 // └────────────────────────────────────────────────────────────────────────────────┘
 
 using System.CommandLine;
 
-namespace EnvManager.CommandLine.Tools;
+namespace EnvManager.CommandLine.Variable;
 
 /// <summary>
-/// The <c>tools</c> command groups the subcommands used to manage tools: <c>add</c>,
-/// <c>remove</c>, <c>list</c>, and <c>update</c>.
+/// The <c>variable</c> command groups the subcommands used to manage environment
+/// variables: <c>set</c>, <c>remove</c>, <c>list</c>, and <c>update</c>.
 /// </summary>
-public sealed class ToolsCommand : Command
+public sealed class VariableCommand : Command
 {
     // ┌────────────────────────────────────────────────────────────────────────────────┐
     // │ public Constructor                                                              │
     // └────────────────────────────────────────────────────────────────────────────────┘
 
-    /// <summary>Initializes a new instance of the <see cref="ToolsCommand"/> class.</summary>
-    public ToolsCommand()
-        : base("tools", "Manage tools and configurations.")
+    /// <summary>Initializes a new instance of the <see cref="VariableCommand"/> class.</summary>
+    public VariableCommand()
+        : base("variable", "Manage environment variables and configurations.")
     {
-        this.Add(new ToolsAddCommand());
-        this.Add(new ToolsRemoveCommand());
-        this.Add(new ToolsListCommand());
-        this.Add(new ToolsUpdateCommand());
+        this.Add(new VariableSetCommand());
+        this.Add(new VariableRemoveCommand());
+        this.Add(new VariableListCommand());
+        this.Add(new VariableUpdateCommand());
     }
 }

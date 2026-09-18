@@ -1,47 +1,48 @@
 // ┌────────────────────────────────────────────────────────────────────────────────┐
-// │ File: InitCommand.cs                                                          │
+// │ File: VariableRemoveCommand.cs                                                │
 // │ Author: EnvManager Contributors                                                │
 // │ Created: 2026-09-18                                                            │
 // └────────────────────────────────────────────────────────────────────────────────┘
 
-using System;
 using System.CommandLine;
 
 using EnvManager.Configuration;
+using EnvManager.Exceptions;
 
-namespace EnvManager.CommandLine;
+namespace EnvManager.CommandLine.Variable;
 
 /// <summary>
-/// The <c>init</c> command creates a brand-new, local-only environment configuration
-/// repository (without a remote), useful for working offline before a remote is
-/// configured, or for trying EnvManager out. A remote can be attached later with
-/// <c>git -C &lt;repository&gt; remote add origin &lt;url&gt;</c> followed by <c>push</c>.
+/// The <c>variable remove</c> command removes an existing environment variable.
 /// </summary>
-public sealed class InitCommand : Command
+public sealed class VariableRemoveCommand : Command
 {
     // ┌────────────────────────────────────────────────────────────────────────────────┐
     // │ public Constructor                                                              │
     // └────────────────────────────────────────────────────────────────────────────────┘
 
-    /// <summary>Initializes a new instance of the <see cref="InitCommand"/> class.</summary>
-    public InitCommand()
-        : base("init", "Initializes a new, local-only environment configuration repository.")
+    /// <summary>Initializes a new instance of the <see cref="VariableRemoveCommand"/> class.</summary>
+    public VariableRemoveCommand()
+        : base("remove", "Removes an existing environment variable or configuration.")
     {
-        Option<string> environmentOption = new("--environment", "-e")
-        {
-            Description = "The name of the initial environment (branch) to create. Defaults to the local machine name.",
-            DefaultValueFactory = _ => Environment.MachineName,
-        };
+        Argument<string> nameArgument = new("variable_name") { Description = "The name of the environment variable to remove." };
 
-        this.Add(environmentOption);
+        this.Add(nameArgument);
 
         this.SetAction((parseResult, cancellationToken) => CommandExecutor.RunAsync(async () =>
         {
-            string environmentName = parseResult.GetValue(environmentOption)!;
+            string name = parseResult.GetValue(nameArgument)!;
 
-            await EnvironmentRepository.InitAsync(environmentName, cancellationToken).ConfigureAwait(false);
+            EnvironmentRepository repository = EnvironmentRepository.OpenExisting();
+            EnvironmentConfiguration configuration = await repository.LoadConfigurationAsync(cancellationToken).ConfigureAwait(false);
 
-            ConsoleReporter.Success($"Initialized a new EnvManager repository with environment '{environmentName}'.");
+            if (!configuration.Variables.Remove(name))
+            {
+                throw new ConfigurationException($"Variable '{name}' does not exist in the current environment.");
+            }
+
+            await repository.SaveConfigurationAsync(configuration, $"Remove variable '{name}'.", cancellationToken).ConfigureAwait(false);
+
+            ConsoleReporter.Success($"Removed variable '{name}'.");
         }));
     }
 }

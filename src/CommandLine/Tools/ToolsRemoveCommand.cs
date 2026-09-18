@@ -1,52 +1,60 @@
-using System;
-using System.Collections.Generic;
+// ┌────────────────────────────────────────────────────────────────────────────────┐
+// │ File: ToolsRemoveCommand.cs                                                  │
+// │ Author: EnvManager Contributors                                                │
+// │ Created: 2026-09-18                                                            │
+// └────────────────────────────────────────────────────────────────────────────────┘
+
 using System.CommandLine;
-using System.Threading;
-using System.Threading.Tasks;
+using System.Linq;
+
+using EnvManager.Configuration;
+using EnvManager.Exceptions;
+using EnvManager.PackageManagers;
+
 using Spectre.Console;
 
-internal sealed class ToolsRemoveCommand : BaseCommand
+namespace EnvManager.CommandLine.Tools;
+
+/// <summary>
+/// The <c>tools remove</c> command uninstalls a tool using the package manager it was
+/// installed with, then removes it from the current environment's configuration.
+/// </summary>
+public sealed class ToolsRemoveCommand : Command
 {
-    private readonly Argument<string> nameArgument = new("name")
+    // ┌────────────────────────────────────────────────────────────────────────────────┐
+    // │ public Constructor                                                              │
+    // └────────────────────────────────────────────────────────────────────────────────┘
+
+    /// <summary>Initializes a new instance of the <see cref="ToolsRemoveCommand"/> class.</summary>
+    public ToolsRemoveCommand()
+        : base("remove", "Removes an existing tool or configuration.")
     {
-        Description = "The name of the tool to remove",
-        Arity = ArgumentArity.ZeroOrOne
-    };
+        Argument<string> toolNameArgument = new("tool_name") { Description = "The name of the tool to remove." };
 
-    private readonly Configuration configuration;
-    private readonly Logger logger;
-    private readonly ConfigurationService configurationService;
+        this.Add(toolNameArgument);
 
-    public ToolsRemoveCommand(ConfigurationService configurationService, Logger logger)
-        : base("remove", "Remove a tool from the environment")
-    {
-        this.configurationService = configurationService;
-        this.logger = logger;
-
-        Add(nameArgument);
-    }
-
-    protected override async Task ExecuteAsync(ParseResult parseResult, CancellationToken cancellationToken)
-    {
-        string toolName = parseResult.GetValue(nameArgument) switch
+        this.SetAction((parseResult, cancellationToken) => CommandExecutor.RunAsync(async () =>
         {
-            string name => name,
-            null => AnsiConsole.Ask<string>("Enter the name of the tool:")
-        };
+            string toolName = parseResult.GetValue(toolNameArgument)!;
 
-        Configuration configuration = configurationService.Configuration;
+            EnvironmentRepository repository = EnvironmentRepository.OpenExisting();
+            EnvironmentConfiguration configuration = await repository.LoadConfigurationAsync(cancellationToken).ConfigureAwait(false);
 
-        if (!configuration.Tools.Contains(toolName))
-        {
-            throw new InvalidOperationException($"Tool '{toolName}' does not exist in the environment.");
-        }
-        else
-        {
-            configuration.Tools.Remove(toolName);
+            ToolDefinition tool = configuration.Tools.FirstOrDefault(candidate => candidate.Name == toolName)
+                ?? throw new ConfigurationException($"Tool '{toolName}' is not tracked in the current environment.");
 
-            await configurationService.WriteAsync().ConfigureAwait(false);
+            IPackageManager packageManager = tool.PackageManager is null
+                ? await PackageManagerFactory.DetectAsync(cancellationToken).ConfigureAwait(false)
+                : PackageManagerFactory.GetByName(tool.PackageManager);
 
-            logger.Success($"Tool '{toolName}' removed successfully!");
-        }
+            await AnsiConsole.Status().StartAsync($"Removing '{toolName}' using '{packageManager.Name}'...", async _ =>
+                await packageManager.RemoveAsync(toolName, cancellationToken).ConfigureAwait(false)).ConfigureAwait(false);
+
+            configuration.Tools.Remove(tool);
+
+            await repository.SaveConfigurationAsync(configuration, $"Remove tool '{toolName}'.", cancellationToken).ConfigureAwait(false);
+
+            ConsoleReporter.Success($"Removed tool '{toolName}'.");
+        }));
     }
 }

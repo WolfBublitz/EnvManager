@@ -1,30 +1,39 @@
 // ┌────────────────────────────────────────────────────────────────────────────────┐
-// │ File: ToolsCommand.cs                                                        │
+// │ File: PackageManagerException.cs                                              │
 // │ Author: EnvManager Contributors                                                │
 // │ Created: 2026-09-18                                                            │
 // └────────────────────────────────────────────────────────────────────────────────┘
 
-using System.CommandLine;
+using System;
 
-namespace EnvManager.CommandLine.Tools;
+namespace EnvManager.Exceptions;
 
 /// <summary>
-/// The <c>tools</c> command groups the subcommands used to manage tools: <c>add</c>,
-/// <c>remove</c>, <c>list</c>, and <c>update</c>.
+/// Raised when a package manager operation (install, remove, update, list) fails, or
+/// when no supported package manager could be detected on the current system.
 /// </summary>
-public sealed class ToolsCommand : Command
+public sealed class PackageManagerException : EnvManagerException
 {
     // ┌────────────────────────────────────────────────────────────────────────────────┐
     // │ public Constructor                                                              │
     // └────────────────────────────────────────────────────────────────────────────────┘
 
-    /// <summary>Initializes a new instance of the <see cref="ToolsCommand"/> class.</summary>
-    public ToolsCommand()
-        : base("tools", "Manage tools and configurations.")
+    /// <summary>
+    /// Initializes a new instance of the <see cref="PackageManagerException"/> class.
+    /// </summary>
+    /// <param name="message">A human-readable description of the error.</param>
+    public PackageManagerException(string message)
+        : base(message)
     {
-        this.Add(new ToolsAddCommand());
-        this.Add(new ToolsRemoveCommand());
-        this.Add(new ToolsListCommand());
-        this.Add(new ToolsUpdateCommand());
+    }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="PackageManagerException"/> class.
+    /// </summary>
+    /// <param name="message">A human-readable description of the error.</param>
+    /// <param name="innerException">The exception that caused the current error.</param>
+    public PackageManagerException(string message, Exception innerException)
+        : base(message, innerException)
+    {
     }
 }

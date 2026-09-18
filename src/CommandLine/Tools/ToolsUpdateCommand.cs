@@ -1,44 +1,74 @@
-using System;
+// ┌────────────────────────────────────────────────────────────────────────────────┐
+// │ File: ToolsUpdateCommand.cs                                                  │
+// │ Author: EnvManager Contributors                                                │
+// │ Created: 2026-09-18                                                            │
+// └────────────────────────────────────────────────────────────────────────────────┘
+
 using System.Collections.Generic;
 using System.CommandLine;
-using System.Threading;
-using System.Threading.Tasks;
+using System.Linq;
+
+using EnvManager.Configuration;
+using EnvManager.Exceptions;
+using EnvManager.PackageManagers;
+
 using Spectre.Console;
 
-internal sealed class ToolsUpdateCommand : BaseCommand
+namespace EnvManager.CommandLine.Tools;
+
+/// <summary>
+/// The <c>tools update</c> command updates one tracked tool, or every tracked tool when
+/// no name is given, using each tool's recorded package manager.
+/// </summary>
+public sealed class ToolsUpdateCommand : Command
 {
-    private readonly ConfigurationService configurationService;
-    private readonly Logger logger;
+    // ┌────────────────────────────────────────────────────────────────────────────────┐
+    // │ public Constructor                                                              │
+    // └────────────────────────────────────────────────────────────────────────────────┘
 
-    private readonly IPackageManager packageManager;
-
-    public ToolsUpdateCommand(ConfigurationService configurationService, IPackageManager packageManager, Logger logger)
-        : base("update", "Update an existing tool in the environment")
+    /// <summary>Initializes a new instance of the <see cref="ToolsUpdateCommand"/> class.</summary>
+    public ToolsUpdateCommand()
+        : base("update", "Updates an existing tool or configuration.")
     {
-        this.configurationService = configurationService;
-        this.packageManager = packageManager;
-        this.logger = logger;
-    }
-
-    protected sealed override async Task ExecuteAsync(ParseResult parseResult, CancellationToken cancellationToken)
-    {
-        await AnsiConsole.Status().StartAsync("Updating tools...", async ctx =>
+        Argument<string?> toolNameArgument = new("tool_name")
         {
-            Configuration configuration = configurationService.Configuration;
-    
-            foreach (string toolName in configuration.Tools)
-            {
-                try
-                {
-                    await packageManager.UpdatePackageAsync(toolName).ConfigureAwait(false);
+            Description = "The name of the tool to update. Updates every tracked tool when omitted.",
+            Arity = ArgumentArity.ZeroOrOne,
+        };
 
-                    logger.Success($"Tool '{toolName}' updated successfully!");
-                }
-                catch (Exception exception)
-                {
-                    logger.Error($"Failed to update tool '{toolName}': {exception.Message}");
-                }
+        this.Add(toolNameArgument);
+
+        this.SetAction((parseResult, cancellationToken) => CommandExecutor.RunAsync(async () =>
+        {
+            string? toolName = parseResult.GetValue(toolNameArgument);
+
+            EnvironmentRepository repository = EnvironmentRepository.OpenExisting();
+            EnvironmentConfiguration configuration = await repository.LoadConfigurationAsync(cancellationToken).ConfigureAwait(false);
+
+            List<ToolDefinition> toolsToUpdate = toolName is null
+                ? configuration.Tools
+                : [configuration.Tools.FirstOrDefault(candidate => candidate.Name == toolName)
+                    ?? throw new ConfigurationException($"Tool '{toolName}' is not tracked in the current environment.")];
+
+            if (toolsToUpdate.Count == 0)
+            {
+                ConsoleReporter.Info($"No tools are tracked for environment '{configuration.Name}'.");
+                return;
             }
-        }).ConfigureAwait(false);
+
+            foreach (ToolDefinition tool in toolsToUpdate)
+            {
+                IPackageManager packageManager = tool.PackageManager is null
+                    ? await PackageManagerFactory.DetectAsync(cancellationToken).ConfigureAwait(false)
+                    : PackageManagerFactory.GetByName(tool.PackageManager);
+
+                await AnsiConsole.Status().StartAsync($"Updating '{tool.Name}' using '{packageManager.Name}'...", async _ =>
+                    await packageManager.UpdateAsync(tool.Name, cancellationToken).ConfigureAwait(false)).ConfigureAwait(false);
+
+                ConsoleReporter.Success($"Updated tool '{tool.Name}'.");
+            }
+
+            await repository.SaveConfigurationAsync(configuration, "Update tools.", cancellationToken).ConfigureAwait(false);
+        }));
     }
 }

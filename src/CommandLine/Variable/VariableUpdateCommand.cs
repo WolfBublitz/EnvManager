@@ -1,5 +1,5 @@
 // ┌────────────────────────────────────────────────────────────────────────────────┐
-// │ File: ToolsListCommand.cs                                                    │
+// │ File: VariableUpdateCommand.cs                                               │
 // │ Author: EnvManager Contributors                                                │
 // │ Created: 2026-09-18                                                            │
 // └────────────────────────────────────────────────────────────────────────────────┘
@@ -7,46 +7,48 @@
 using System.CommandLine;
 
 using EnvManager.Configuration;
+using EnvManager.Exceptions;
 
-using Spectre.Console;
-
-namespace EnvManager.CommandLine.Tools;
+namespace EnvManager.CommandLine.Variable;
 
 /// <summary>
-/// The <c>tools list</c> command lists all tools tracked for the current environment.
+/// The <c>variable update</c> command updates the value of an existing environment
+/// variable. Unlike <c>variable set</c>, it fails when the variable does not exist yet.
 /// </summary>
-public sealed class ToolsListCommand : Command
+public sealed class VariableUpdateCommand : Command
 {
     // ┌────────────────────────────────────────────────────────────────────────────────┐
     // │ public Constructor                                                              │
     // └────────────────────────────────────────────────────────────────────────────────┘
 
-    /// <summary>Initializes a new instance of the <see cref="ToolsListCommand"/> class.</summary>
-    public ToolsListCommand()
-        : base("list", "Lists all tools and configurations.")
+    /// <summary>Initializes a new instance of the <see cref="VariableUpdateCommand"/> class.</summary>
+    public VariableUpdateCommand()
+        : base("update", "Updates an existing environment variable or configuration.")
     {
-        this.SetAction((_, cancellationToken) => CommandExecutor.RunAsync(async () =>
+        Argument<string> nameArgument = new("variable_name") { Description = "The name of the environment variable to update." };
+        Argument<string> valueArgument = new("variable_value") { Description = "The new value of the environment variable." };
+
+        this.Add(nameArgument);
+        this.Add(valueArgument);
+
+        this.SetAction((parseResult, cancellationToken) => CommandExecutor.RunAsync(async () =>
         {
+            string name = parseResult.GetValue(nameArgument)!;
+            string value = parseResult.GetValue(valueArgument)!;
+
             EnvironmentRepository repository = EnvironmentRepository.OpenExisting();
             EnvironmentConfiguration configuration = await repository.LoadConfigurationAsync(cancellationToken).ConfigureAwait(false);
 
-            if (configuration.Tools.Count == 0)
+            if (!configuration.Variables.ContainsKey(name))
             {
-                ConsoleReporter.Info($"No tools are tracked for environment '{configuration.Name}'.");
-                return;
+                throw new ConfigurationException($"Variable '{name}' does not exist in the current environment. Use 'variable set' to create it.");
             }
 
-            Table table = new Table().Title($"Tools for environment '{configuration.Name}'")
-                .AddColumn("Name")
-                .AddColumn("Package Manager")
-                .AddColumn("Version");
+            configuration.Variables[name] = value;
 
-            foreach (ToolDefinition tool in configuration.Tools)
-            {
-                table.AddRow(tool.Name, tool.PackageManager ?? "(auto)", tool.Version ?? "(latest)");
-            }
+            await repository.SaveConfigurationAsync(configuration, $"Update variable '{name}'.", cancellationToken).ConfigureAwait(false);
 
-            AnsiConsole.Write(table);
+            ConsoleReporter.Success($"Updated variable '{name}'.");
         }));
     }
 }

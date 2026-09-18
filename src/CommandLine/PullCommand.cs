@@ -1,10 +1,9 @@
 // ┌────────────────────────────────────────────────────────────────────────────────┐
-// │ File: InitCommand.cs                                                          │
+// │ File: PullCommand.cs                                                          │
 // │ Author: EnvManager Contributors                                                │
 // │ Created: 2026-09-18                                                            │
 // └────────────────────────────────────────────────────────────────────────────────┘
 
-using System;
 using System.CommandLine;
 
 using EnvManager.Configuration;
@@ -12,36 +11,29 @@ using EnvManager.Configuration;
 namespace EnvManager.CommandLine;
 
 /// <summary>
-/// The <c>init</c> command creates a brand-new, local-only environment configuration
-/// repository (without a remote), useful for working offline before a remote is
-/// configured, or for trying EnvManager out. A remote can be attached later with
-/// <c>git -C &lt;repository&gt; remote add origin &lt;url&gt;</c> followed by <c>push</c>.
+/// The <c>pull</c> command pulls the latest committed changes for the current
+/// environment from the remote repository.
 /// </summary>
-public sealed class InitCommand : Command
+public sealed class PullCommand : Command
 {
     // ┌────────────────────────────────────────────────────────────────────────────────┐
     // │ public Constructor                                                              │
     // └────────────────────────────────────────────────────────────────────────────────┘
 
-    /// <summary>Initializes a new instance of the <see cref="InitCommand"/> class.</summary>
-    public InitCommand()
-        : base("init", "Initializes a new, local-only environment configuration repository.")
+    /// <summary>Initializes a new instance of the <see cref="PullCommand"/> class.</summary>
+    public PullCommand()
+        : base("pull", "Pulls the latest environment configuration from the remote repository.")
     {
-        Option<string> environmentOption = new("--environment", "-e")
+        this.SetAction((_, cancellationToken) => CommandExecutor.RunAsync(async () =>
         {
-            Description = "The name of the initial environment (branch) to create. Defaults to the local machine name.",
-            DefaultValueFactory = _ => Environment.MachineName,
-        };
+            EnvironmentRepository repository = EnvironmentRepository.OpenExisting();
+            string environmentName = await repository.GetCurrentEnvironmentNameAsync(cancellationToken).ConfigureAwait(false);
 
-        this.Add(environmentOption);
+            ConsoleReporter.Info($"Pulling environment '{environmentName}'...");
 
-        this.SetAction((parseResult, cancellationToken) => CommandExecutor.RunAsync(async () =>
-        {
-            string environmentName = parseResult.GetValue(environmentOption)!;
+            await repository.PullAsync(cancellationToken).ConfigureAwait(false);
 
-            await EnvironmentRepository.InitAsync(environmentName, cancellationToken).ConfigureAwait(false);
-
-            ConsoleReporter.Success($"Initialized a new EnvManager repository with environment '{environmentName}'.");
+            ConsoleReporter.Success($"Pulled the latest changes for environment '{environmentName}'.");
         }));
     }
 }

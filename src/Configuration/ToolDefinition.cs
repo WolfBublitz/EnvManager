@@ -1,30 +1,27 @@
 // ┌────────────────────────────────────────────────────────────────────────────────┐
-// │ File: ToolsCommand.cs                                                        │
+// │ File: ToolDefinition.cs                                                        │
 // │ Author: EnvManager Contributors                                                │
 // │ Created: 2026-09-18                                                            │
 // └────────────────────────────────────────────────────────────────────────────────┘
 
-using System.CommandLine;
-
-namespace EnvManager.CommandLine.Tools;
+namespace EnvManager.Configuration;
 
 /// <summary>
-/// The <c>tools</c> command groups the subcommands used to manage tools: <c>add</c>,
-/// <c>remove</c>, <c>list</c>, and <c>update</c>.
+/// Describes a single tool that should be installed as part of an environment, along
+/// with the package manager and version that were used (or requested) for it.
 /// </summary>
-public sealed class ToolsCommand : Command
+public sealed class ToolDefinition
 {
     // ┌────────────────────────────────────────────────────────────────────────────────┐
-    // │ public Constructor                                                              │
+    // │ public Property                                                                 │
     // └────────────────────────────────────────────────────────────────────────────────┘
 
-    /// <summary>Initializes a new instance of the <see cref="ToolsCommand"/> class.</summary>
-    public ToolsCommand()
-        : base("tools", "Manage tools and configurations.")
-    {
-        this.Add(new ToolsAddCommand());
-        this.Add(new ToolsRemoveCommand());
-        this.Add(new ToolsListCommand());
-        this.Add(new ToolsUpdateCommand());
-    }
+    /// <summary>Gets or sets the name of the tool, as understood by the package manager.</summary>
+    public string Name { get; set; } = string.Empty;
+
+    /// <summary>Gets or sets the identifier of the package manager used to install the tool (e.g. "brew").</summary>
+    public string? PackageManager { get; set; }
+
+    /// <summary>Gets or sets the requested version of the tool, or <see langword="null"/> for the latest version.</summary>
+    public string? Version { get; set; }
 }

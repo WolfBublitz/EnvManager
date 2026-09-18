@@ -1,30 +1,31 @@
 // ┌────────────────────────────────────────────────────────────────────────────────┐
-// │ File: ToolsCommand.cs                                                        │
+// │ File: Program.cs                                                              │
 // │ Author: EnvManager Contributors                                                │
 // │ Created: 2026-09-18                                                            │
 // └────────────────────────────────────────────────────────────────────────────────┘
 
 using System.CommandLine;
+using System.Threading.Tasks;
 
-namespace EnvManager.CommandLine.Tools;
+using EnvManager.CommandLine;
 
-/// <summary>
-/// The <c>tools</c> command groups the subcommands used to manage tools: <c>add</c>,
-/// <c>remove</c>, <c>list</c>, and <c>update</c>.
-/// </summary>
-public sealed class ToolsCommand : Command
+namespace EnvManager;
+
+/// <summary>The EnvManager CLI entry point.</summary>
+public static class Program
 {
     // ┌────────────────────────────────────────────────────────────────────────────────┐
-    // │ public Constructor                                                              │
+    // │ public Method                                                                   │
     // └────────────────────────────────────────────────────────────────────────────────┘
 
-    /// <summary>Initializes a new instance of the <see cref="ToolsCommand"/> class.</summary>
-    public ToolsCommand()
-        : base("tools", "Manage tools and configurations.")
+    /// <summary>Parses the command line arguments and invokes the matching command.</summary>
+    /// <param name="args">The raw command line arguments.</param>
+    /// <returns>The process exit code.</returns>
+    public static async Task<int> Main(string[] args)
     {
-        this.Add(new ToolsAddCommand());
-        this.Add(new ToolsRemoveCommand());
-        this.Add(new ToolsListCommand());
-        this.Add(new ToolsUpdateCommand());
+        EnvManagerRootCommand rootCommand = new();
+        ParseResult parseResult = rootCommand.Parse(args);
+
+        return await parseResult.InvokeAsync().ConfigureAwait(false);
     }
 }

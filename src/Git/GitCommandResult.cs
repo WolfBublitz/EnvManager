@@ -1,30 +1,23 @@
 // ┌────────────────────────────────────────────────────────────────────────────────┐
-// │ File: ToolsCommand.cs                                                        │
+// │ File: GitCommandResult.cs                                                     │
 // │ Author: EnvManager Contributors                                                │
 // │ Created: 2026-09-18                                                            │
 // └────────────────────────────────────────────────────────────────────────────────┘
 
-using System.CommandLine;
-
-namespace EnvManager.CommandLine.Tools;
+namespace EnvManager.Git;
 
 /// <summary>
-/// The <c>tools</c> command groups the subcommands used to manage tools: <c>add</c>,
-/// <c>remove</c>, <c>list</c>, and <c>update</c>.
+/// Represents the captured result of a single invocation of the <c>git</c> executable.
 /// </summary>
-public sealed class ToolsCommand : Command
+/// <param name="ExitCode">The process exit code.</param>
+/// <param name="StandardOutput">The captured, trimmed standard output.</param>
+/// <param name="StandardError">The captured, trimmed standard error output.</param>
+public readonly record struct GitCommandResult(int ExitCode, string StandardOutput, string StandardError)
 {
     // ┌────────────────────────────────────────────────────────────────────────────────┐
-    // │ public Constructor                                                              │
+    // │ public Property                                                                 │
     // └────────────────────────────────────────────────────────────────────────────────┘
 
-    /// <summary>Initializes a new instance of the <see cref="ToolsCommand"/> class.</summary>
-    public ToolsCommand()
-        : base("tools", "Manage tools and configurations.")
-    {
-        this.Add(new ToolsAddCommand());
-        this.Add(new ToolsRemoveCommand());
-        this.Add(new ToolsListCommand());
-        this.Add(new ToolsUpdateCommand());
-    }
+    /// <summary>Gets a value indicating whether the git process exited successfully.</summary>
+    public bool Succeeded => this.ExitCode == 0;
 }
