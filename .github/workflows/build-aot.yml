@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - '**'
+    tags:
+      - '*'
   pull_request:
     branches:
       - '**'
@@ -41,8 +43,36 @@ jobs:
         working-directory: src
         run:  dotnet publish EnvManager.csproj -c Release -r ${{ matrix.rid }} /p:PublishAot=true /p:PublishSingleFile=true /p:StripSymbols=true /p:IlcOptimizationPreference=Speed /p:DebuggerSupport=false /p:EnableUnsafeBinaryFormatterSerialization=false
 
+      - name: Prepare release asset
+        shell: bash
+        run: |
+          mkdir -p release
+          cp "src/bin/Release/net11.0/${{ matrix.rid }}/publish/EnvManager${{ matrix.os == 'windows-latest' && '.exe' || '' }}" "release/EnvManager-${{ matrix.rid }}${{ matrix.os == 'windows-latest' && '.exe' || '' }}"
+
       - name: Upload Artifact
         uses: actions/upload-artifact@v7
         with:
-          name: aot-${{ matrix.os }}
-          path: src/bin/Release/net11.0/${{ matrix.rid }}/publish/EnvManager${{ matrix.os == 'windows-latest' && '.exe' || '' }}
+          name: aot-${{ matrix.rid }}
+          path: release/EnvManager-${{ matrix.rid }}${{ matrix.os == 'windows-latest' && '.exe' || '' }}
+
+  release:
+    name: Create release
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download release assets
+        uses: actions/download-artifact@v8
+        with:
+          pattern: aot-*
+          path: release
+          merge-multiple: true
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: gh release create "$TAG" release/* --generate-notes
