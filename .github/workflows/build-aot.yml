@@ -1,0 +1,48 @@
+name: Build .NET AOT App
+
+on:
+  push:
+    branches:
+      - '**'
+  pull_request:
+    branches:
+      - '**'
+
+jobs:
+  build:
+    name: Build ${{ matrix.rid }} AOT
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            rid: linux-x64
+          - os: ubuntu-26.04-arm
+            rid: linux-arm64
+          - os: windows-latest
+            rid: win-x64
+          - os: macos-latest
+            rid: osx-x64
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 11.0.x
+
+      - name: Restore
+        working-directory: src
+        run: dotnet restore
+
+      - name: Publish AOT
+        working-directory: src
+        run:  dotnet publish EnvManager.csproj -c Release -r ${{ matrix.rid }} /p:PublishAot=true /p:PublishSingleFile=true /p:StripSymbols=true /p:IlcOptimizationPreference=Speed /p:DebuggerSupport=false /p:EnableUnsafeBinaryFormatterSerialization=false
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: aot-${{ matrix.os }}
+          path: src/bin/Release/net11.0/${{ matrix.rid }}/publish/EnvManager${{ matrix.os == 'windows-latest' && '.exe' || '' }}
