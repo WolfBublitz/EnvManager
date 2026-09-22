@@ -59,7 +59,7 @@ EnvManager/
 ```
 
 | Item                          | Description                                                                   |
-| ----------------------------- | ----------------------------------------------------------------------------- |
+|-------------------------------|-------------------------------------------------------------------------------|
 | `src`                         | Contains the main source code for the EnvManager project.                     |
 | `tests`                       | Contains the test projects and test-related files for the EnvManager project. |
 | `tests/Directory.build.props` | Contains the directory build properties for the test projects.                |
@@ -366,7 +366,7 @@ The user shall be able to configure a list of supported shells for the environme
 Possible shells include:
 
 | Shell      | Operating System      |
-| ---------- | --------------------- |
+|------------|-----------------------|
 | bash       | Linux, macOS          |
 | zsh        | Linux, macOS          |
 | fish       | Linux, macOS          |
@@ -382,7 +382,7 @@ EnvManager allows you to manage tools for the environment. The tools can be adde
 EnvManager supports the following package managers:
 
 | Package Manager | Operating System |
-| --------------- | ---------------- |
+|-----------------|------------------|
 | apt             | Linux            |
 | dnf             | Linux            |
 | yum             | Linux            |
@@ -403,9 +403,31 @@ EnvManager allows you to manage environment variables efficiently. You can set, 
 
 The installation shall be possible via shellscript that can be downloaded and executed. The script should:
 
-- download the EnvManager executable for the respective operating system
+- download the latest EnvManager executable for the respective operating system
 - place it in a directory included in the system's PATH
 - make the script executable
+
+### Download Url
+
+```bash
+https://github.com/WolfBublitz/EnvManager/releases/download/<version>/EnvManager-<os>-<arch>
+```
+
+Replace:
+
+- `<version>` with the desired version of EnvManager (e.g., `1.0.0-preview.1`)
+- `<os>` with the target operating system (e.g., `linux`, `macos`, `windows`)
+- `<arch>` with the target architecture (e.g., `x64`, `arm64`)
+
+### Options
+
+The installation script supports the following options:
+
+| Option                      | Description                                                                                                                      |
+|-----------------------------|----------------------------------------------------------------------------------------------------------------------------------|
+| `--version <version>`       | Specifies the version of EnvManager to install. Defaults to the latest version.                                                  |
+| `--install-dir <directory>` | Specifies the directory where the EnvManager executable should be placed. Defaults to a directory included in the system's PATH. |
+| `--help`                    | Displays help information about the installation script.                                                                         |
 
 ### Linux / MacOS
 
