@@ -13,14 +13,13 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="MinVer">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
     <PackageReference Include="Spectre.Console" />
     <PackageReference Include="System.CommandLine" />
     <PackageReference Include="YamlDotNet" />
-    <PackageReference Include="GitVersion.MsBuild">
-      <PrivateAssets>All</PrivateAssets>
-   </PackageReference>
-
   </ItemGroup>
-    
 
 </Project>
