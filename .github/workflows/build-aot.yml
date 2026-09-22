@@ -59,7 +59,7 @@ jobs:
           path: release/EnvManager-${{ matrix.rid }}${{ matrix.os == 'windows-latest' && '.exe' || '' }}
 
   release:
-    name: Create release
+    name: Upload release assets
     if: startsWith(github.ref, 'refs/tags/')
     needs: build
     runs-on: ubuntu-latest
@@ -74,8 +74,8 @@ jobs:
           path: release
           merge-multiple: true
 
-      - name: Create GitHub release
+      - name: Upload assets to existing GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ github.ref_name }}
-        run: gh release create "$TAG" release/* --generate-notes
+        run: gh release upload "$TAG" release/* --clobber
