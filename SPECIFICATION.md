@@ -401,7 +401,11 @@ EnvManager allows you to manage environment variables efficiently. You can set, 
 
 ## Installation
 
-The installation shall be possible via shellscript that can be downloaded and executed.
+The installation shall be possible via shellscript that can be downloaded and executed. The script should:
+
+- download the EnvManager executable for the respective operating system
+- place it in a directory included in the system's PATH
+- make the script executable
 
 ### Linux / MacOS
 
