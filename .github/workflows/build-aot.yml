@@ -26,9 +26,6 @@ jobs:
           - os: windows-latest
             rid: win-x64
             asset: EnvManager-windows-x64.exe
-          - os: macos-13
-            rid: osx-x64
-            asset: EnvManager-macos-x64
           - os: macos-14
             rid: osx-arm64
             asset: EnvManager-macos-arm64
