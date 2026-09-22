@@ -24,7 +24,7 @@ review changes to your setup like any other code.
 ### Linux / macOS
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/WolfBublitz/EnvManager/refs/heads/master/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/WolfBublitz/EnvManager/refs/heads/dev/install.sh | bash
 ```
 
 Downloads the `EnvManager` executable for your platform, installs it to
@@ -33,7 +33,7 @@ Downloads the `EnvManager` executable for your platform, installs it to
 ### Windows
 
 ```pwsh
-irm "https://raw.githubusercontent.com/WolfBublitz/EnvManager/refs/heads/master/install.ps1" -UseBasicParsing | iex
+irm "https://raw.githubusercontent.com/WolfBublitz/EnvManager/refs/heads/dev/install.sh" -UseBasicParsing | iex
 ```
 
 Downloads `EnvManager.exe`, installs it to `%LOCALAPPDATA%\Programs\EnvManager`
