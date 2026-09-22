@@ -1,39 +1,46 @@
 // ┌────────────────────────────────────────────────────────────────────────────────┐
-// │ File: EnvManagerRootCommand.cs                                               │
+// │ File: FilesAddCommand.cs                                                     │
 // │ Author: EnvManager Contributors                                                │
 // │ Created: 2026-09-18                                                            │
 // └────────────────────────────────────────────────────────────────────────────────┘
 
 using System.CommandLine;
 
-using EnvManager.CommandLine.Files;
-using EnvManager.CommandLine.Tools;
-using EnvManager.CommandLine.Variable;
+using EnvManager.Configuration;
 
-namespace EnvManager.CommandLine;
+namespace EnvManager.CommandLine.Files;
 
 /// <summary>
-/// The top-level EnvManager CLI command, wiring together every subcommand described in
-/// the project specification: <c>clone</c>, <c>init</c>, <c>variable</c>, <c>tools</c>,
-/// <c>files</c>, <c>push</c>, <c>pull</c>, and <c>switch</c>.
+/// The <c>files add</c> command adds an existing file from the home directory to the
+/// environment repository, so that it is tracked and versioned as part of the
+/// currently checked-out environment.
 /// </summary>
-public sealed class EnvManagerRootCommand : RootCommand
+public sealed class FilesAddCommand : Command
 {
     // ┌────────────────────────────────────────────────────────────────────────────────┐
     // │ public Constructor                                                              │
     // └────────────────────────────────────────────────────────────────────────────────┘
 
-    /// <summary>Initializes a new instance of the <see cref="EnvManagerRootCommand"/> class.</summary>
-    public EnvManagerRootCommand()
-        : base("Manages user environment configurations (variables, tools, and shell setup) backed by a git repository.")
+    /// <summary>Initializes a new instance of the <see cref="FilesAddCommand"/> class.</summary>
+    public FilesAddCommand()
+        : base("add", "Adds a new file or configuration to the repository.")
     {
-        this.Add(new CloneCommand());
-        this.Add(new InitCommand());
-        this.Add(new VariableCommand());
-        this.Add(new ToolsCommand());
-        this.Add(new FilesCommand());
-        this.Add(new PushCommand());
-        this.Add(new PullCommand());
-        this.Add(new SwitchCommand());
+        Argument<string> fileNameArgument = new("file_name")
+        {
+            Description = "The name of the file to add, relative to the home directory (or an absolute path within it).",
+        };
+
+        this.Add(fileNameArgument);
+
+        this.SetAction((parseResult, cancellationToken) => CommandExecutor.RunAsync(async () =>
+        {
+            string fileName = parseResult.GetValue(fileNameArgument)!;
+
+            EnvironmentRepository repository = EnvironmentRepository.OpenExisting();
+
+            await repository.AddFileAsync(fileName, cancellationToken).ConfigureAwait(false);
+
+            ConsoleReporter.Success($"Added file '{fileName}' to the repository.");
+        }));
     }
 }

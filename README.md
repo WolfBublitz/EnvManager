@@ -11,6 +11,8 @@ review changes to your setup like any other code.
 - **Environment variables**: set, update, remove, and list user-scoped environment variables.
 - **Tools**: install, remove, list, and update tools using your system's package manager
   (apt, dnf, yum, zypper, brew, scoop, choco, or winget — auto-detected, or explicitly selected).
+- **Files**: track arbitrary files from your home directory (e.g. dotfiles) in the
+  environment repository with `add`, `remove`, and `list`.
 - **Git-backed configuration**: every environment is a branch containing a single
   `environment.yaml` file, so changes are versioned and can be pushed/pulled between machines.
 - **Multiple environments**: switch between environments (branches) at any time.
@@ -34,8 +36,16 @@ dotnet publish src/EnvManager.csproj -c Release -r <RID> /p:PublishAot=true
 
 ## Getting Started
 
-EnvManager stores its local clone of your configuration repository under
-`~/.envmanager/repository` (override with the `ENVMANAGER_HOME` environment variable).
+EnvManager stores its configuration history in a **bare** git repository at
+`$HOME/.EnvManager/repo` (override with the `ENVMANAGER_HOME` environment variable,
+which is treated as `$HOME`, primarily useful for testing). The work tree for this
+repository is your home directory itself — the same trick used by many dotfiles
+managers — so tracked files (`environment.yaml` and anything added via `files add`)
+live directly where you'd expect them, without a dedicated checkout directory:
+
+```bash
+git --git-dir=$HOME/.EnvManager/repo --work-tree=$HOME [command]
+```
 
 ### Starting fresh (no remote yet)
 
@@ -43,9 +53,10 @@ EnvManager stores its local clone of your configuration repository under
 EnvManager init --environment laptop
 ```
 
-Creates a brand-new, local-only repository with a single environment branch. Attach a
-remote later (e.g. `git -C ~/.envmanager/repository remote add origin <url>`) and run
-`EnvManager push` once you're ready to share it.
+Creates a brand-new, local-only bare repository with a single environment branch.
+Attach a remote later (e.g.
+`git --git-dir=$HOME/.EnvManager/repo --work-tree=$HOME remote add origin <url>`) and
+run `EnvManager push` once you're ready to share it.
 
 ### Cloning an existing configuration repository
 
@@ -66,6 +77,7 @@ Commands:
   init                        Initializes a new, local-only environment configuration repository.
   variable                    Manage environment variables and configurations.
   tools                       Manage tools and configurations.
+  files                       Manage files and configurations in the environment repository.
   push                        Pushes the current environment configuration to the remote repository.
   pull                        Pulls the latest environment configuration from the remote repository.
   switch <environment_name>   Switches to a different environment configuration.
@@ -93,6 +105,17 @@ The package manager is auto-detected from your operating system and installed to
 unless `--package-manager` is specified explicitly. Supported package managers: `apt`,
 `dnf`, `yum`, `zypper`, `brew`, `scoop`, `choco`, `winget`.
 
+### Files
+
+```bash
+EnvManager files add <file_name>      # Track a file from your home directory
+EnvManager files remove <file_name>   # Stop tracking a file (left in place on disk)
+EnvManager files list                 # List all files tracked for the current environment
+```
+
+`file_name` is resolved relative to your home directory (or as an absolute path inside
+it); paths outside the home directory are rejected.
+
 ### Synchronizing environments
 
 ```bash
@@ -104,10 +127,15 @@ EnvManager switch <environment_name> [--create]   # Switch to a different enviro
 Use `--create` with `switch` to create a new, empty environment when it doesn't exist yet
 locally or on the remote.
 
+Before checking out an environment, EnvManager moves every existing file tracked by either
+the current or destination environment into a unique backup directory under
+`$HOME/.EnvManager/repo/overwritten-files`. This prevents a branch switch from overwriting
+local files; the destination environment's version is then checked out normally.
+
 ## Configuration Storage
 
 Each environment is stored as a single `environment.yaml` file at the root of its own git
-branch:
+branch (i.e. directly in your home directory when that branch is checked out):
 
 ```yaml
 name: laptop
@@ -119,6 +147,9 @@ tools:
   packageManager: brew
   version: null
 ```
+
+Any files added with `files add` are tracked on the same branch, alongside
+`environment.yaml`, at their original location relative to the home directory.
 
 ## Development
 

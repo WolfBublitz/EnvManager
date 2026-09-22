@@ -85,7 +85,25 @@ The backend of the EnvManager uses a git repository to store and manage environm
 - Each environment configuration is stored as a separate branch.
 - The branch name corresponds to the environment name (e.g., `laptop`, `office`, `server`).
 
-Inside each branch, the environment configuration is stored as a single YAML file called `environment.yaml`.
+Inside each branch, the environment configuration is stored as a single YAML file called `environment.yaml` at `$HOME/.EnvManager/`. The configuration shall be part of the repository. It should be created if not exists.
+
+### Git Setup
+
+The Git repository for storing environment configurations is initialized as a bare repository in the user's home directory under `.EnvManager/repo`.
+
+```bash
+git clone --bare $HOME/.EnvManager/repo
+git --git-dir=$HOME/.EnvManager/repo --work-tree=$HOME --local status.showUntrackedFiles no
+git --git-dir=$HOME/.EnvManager/repo --work-tree=$HOME checkout main
+```
+
+All subsequent Git operations for managing environment configurations will be performed on this bare repository like:
+
+```bash
+git --git-dir=$HOME/.EnvManager/repo --work-tree=$HOME [command]
+```
+
+EnvManager shall move all files that might be overwritten by the environment configuration to a safe location before checking out a new branch.
 
 ## Command Line Interface (CLI)
 
@@ -95,7 +113,7 @@ The CLI structure follows the following typical command-subcommand pattern:
 
 ```yaml
 envmanager:
-  init:   # Initializes a new environment configuration.
+  init:   # Initializes a new environment configuration see [Git Setup](#git-setup)
   variable:
     set:    # Sets a (new) environment variable or configuration.
     remove: # Removes an existing environment variable or configuration.
@@ -107,10 +125,9 @@ envmanager:
     list:   # Lists all tools and configurations.
     update: # Updates an existing tool or configuration.
   file:
-    add:    # Adds a new file or configuration.
-    remove: # Removes an existing file or configuration.
-    list:   # Lists all files and configurations.
-    update: # Updates an existing file or configuration.
+    add:    # Adds a new file or configuration (to the repository)
+    remove: # Removes an existing file or configuration (from the repository)
+    list:   # Lists all files and configurations (in the repository).
   push:     # Pushes the current environment configuration to the remote repository.
   pull:     # Pulls the latest environment configuration from the remote repository.
   switch:   # Switches to a different environment configuration.
@@ -256,6 +273,57 @@ Syntax:
   EnvManager tools list
 ```
 
+### Files Command
+
+```bash
+Description:
+  Manage files and configurations in the environment repository.
+
+Syntax:
+  EnvManager files [subcommand]
+
+Subcommands:
+  add    Adds a new file or configuration to the repository.
+  remove Removes an existing file or configuration from the repository.
+  list   Lists all files and configurations in the repository.
+```
+
+##### Add Subcommand
+
+```bash
+Description:
+  Adds a new file or configuration to the repository.
+
+Syntax:
+  EnvManager files add [file_name]
+
+Arguments:
+  file_name    The name of the file to add.
+```
+
+##### Remove Subcommand
+
+```bash
+Description:
+  Removes an existing file or configuration from the repository.
+
+Syntax:
+  EnvManager files remove [file_name]
+
+Arguments:
+  file_name    The name of the file to remove.
+```
+
+##### List Subcommand
+
+```bash
+Description:
+  Lists all files and configurations in the repository.
+
+Syntax:
+  EnvManager files list
+```
+
 #### Push Command
 
 ```bash
@@ -330,3 +398,19 @@ EnvManager allows you to manage environment variables efficiently. You can set, 
 
 - Environment variables shall be set on user scope.
 - They shall be set for all configured shells.
+
+## Installation
+
+The installation shall be possible via shellscript that can be downloaded and executed.
+
+### Linux / MacOS
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/WolfBublitz/EnvManager/refs/heads/master/install.sh | bash
+```
+
+### Windows
+
+```pwsh
+ire "https://raw.githubusercontent.com/WolfBublitz/EnvManager/refs/heads/master/install.ps1" -UseBasicParsing | Invoke-Expression
+```
