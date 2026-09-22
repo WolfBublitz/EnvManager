@@ -21,6 +21,26 @@ review changes to your setup like any other code.
 
 ## Installation
 
+### Linux / macOS
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/WolfBublitz/EnvManager/refs/heads/master/install.sh | bash
+```
+
+Downloads the `EnvManager` executable for your platform, installs it to
+`$HOME/.local/bin` (override with `ENVMANAGER_INSTALL_DIR`), and makes it executable.
+
+### Windows
+
+```pwsh
+irm "https://raw.githubusercontent.com/WolfBublitz/EnvManager/refs/heads/master/install.ps1" -UseBasicParsing | iex
+```
+
+Downloads `EnvManager.exe`, installs it to `%LOCALAPPDATA%\Programs\EnvManager`
+(override with `-InstallDirectory`), and adds that directory to your user `PATH`.
+
+### Build from source
+
 Build from source (requires the [.NET 11 SDK](https://dotnet.microsoft.com/)):
 
 ```bash
