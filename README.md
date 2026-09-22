@@ -24,20 +24,44 @@ review changes to your setup like any other code.
 ### Linux / macOS
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/WolfBublitz/EnvManager/refs/heads/dev/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/WolfBublitz/EnvManager/refs/heads/master/install.sh | bash
 ```
 
-Downloads the `EnvManager` executable for your platform, installs it to
-`$HOME/.local/bin` (override with `ENVMANAGER_INSTALL_DIR`), and makes it executable.
+Downloads the latest `EnvManager` executable for the current Linux or macOS architecture,
+installs it to `$HOME/.local/bin`, makes it executable, and adds that directory to your
+shell PATH if needed.
 
 ### Windows
 
 ```pwsh
-irm "https://raw.githubusercontent.com/WolfBublitz/EnvManager/refs/heads/dev/install.sh" -UseBasicParsing | iex
+irm "https://raw.githubusercontent.com/WolfBublitz/EnvManager/refs/heads/master/install.ps1" -UseBasicParsing | iex
 ```
 
 Downloads `EnvManager.exe`, installs it to `%LOCALAPPDATA%\Programs\EnvManager`
-(override with `-InstallDirectory`), and adds that directory to your user `PATH`.
+(and adds that directory to your user `PATH`).
+
+### Installer options
+
+The shell installer accepts these options:
+
+| Option | Description |
+| --- | --- |
+| `--version <version>` | Installs a specific release instead of the latest release. |
+| `--install-dir <directory>` | Installs the executable into a specific directory. |
+| `--help` | Displays installer help. |
+
+For example, download the shell script to pass options:
+
+```bash
+curl -fsSLO https://raw.githubusercontent.com/WolfBublitz/EnvManager/refs/heads/master/install.sh
+bash install.sh --version 1.0.0 --install-dir "$HOME/bin"
+```
+
+The PowerShell installer exposes the equivalent `-Version` and `-InstallDir` parameters:
+
+```pwsh
+& ([scriptblock]::Create((irm "https://raw.githubusercontent.com/WolfBublitz/EnvManager/refs/heads/master/install.ps1" -UseBasicParsing))) -Version 1.0.0 -InstallDir "$HOME\bin"
+```
 
 ### Build from source
 

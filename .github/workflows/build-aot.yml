@@ -19,12 +19,19 @@ jobs:
         include:
           - os: ubuntu-latest
             rid: linux-x64
+            asset: EnvManager-linux-x64
           - os: ubuntu-26.04-arm
             rid: linux-arm64
+            asset: EnvManager-linux-arm64
           - os: windows-latest
             rid: win-x64
-          - os: macos-latest
+            asset: EnvManager-windows-x64.exe
+          - os: macos-13
             rid: osx-x64
+            asset: EnvManager-macos-x64
+          - os: macos-14
+            rid: osx-arm64
+            asset: EnvManager-macos-arm64
 
     steps:
       - name: Checkout
@@ -50,13 +57,13 @@ jobs:
         shell: bash
         run: |
           mkdir -p release
-          cp "src/bin/Release/net11.0/${{ matrix.rid }}/publish/EnvManager${{ matrix.os == 'windows-latest' && '.exe' || '' }}" "release/EnvManager-${{ matrix.rid }}${{ matrix.os == 'windows-latest' && '.exe' || '' }}"
+          cp "src/bin/Release/net11.0/${{ matrix.rid }}/publish/EnvManager${{ endsWith(matrix.asset, '.exe') && '.exe' || '' }}" "release/${{ matrix.asset }}"
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v7
         with:
           name: aot-${{ matrix.rid }}
-          path: release/EnvManager-${{ matrix.rid }}${{ matrix.os == 'windows-latest' && '.exe' || '' }}
+          path: release/${{ matrix.asset }}
 
   release:
     name: Upload release assets

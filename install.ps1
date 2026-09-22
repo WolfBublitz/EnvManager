@@ -1,64 +1,79 @@
 <#
 .SYNOPSIS
-    Installs the EnvManager CLI.
+Installs the EnvManager CLI.
 
 .DESCRIPTION
-    Downloads the EnvManager executable for Windows, places it in a per-user
-    installation directory, and ensures that directory is on the user's PATH.
+Downloads the EnvManager executable for the current Windows architecture, places it
+in a per-user installation directory, and adds that directory to the user PATH.
+
+.PARAMETER Version
+The release version to install. Defaults to the latest release.
+
+.PARAMETER InstallDir
+The directory where EnvManager.exe is installed. Defaults to
+%LOCALAPPDATA%\Programs\EnvManager.
 
 .EXAMPLE
-    irm "https://raw.githubusercontent.com/WolfBublitz/EnvManager/refs/heads/master/install.ps1" -UseBasicParsing | iex
+& ([scriptblock]::Create((Invoke-RestMethod
+    "https://raw.githubusercontent.com/WolfBublitz/EnvManager/refs/heads/master/install.ps1"))) -Version 1.0.0
 #>
 
 [CmdletBinding()]
 param(
+    [Parameter()]
+    [ValidateNotNullOrEmpty()]
     [string]$Version = "latest",
-    [string]$InstallDirectory = (Join-Path $env:LOCALAPPDATA "Programs\EnvManager")
+
+    [Parameter()]
+    [Alias("InstallDirectory")]
+    [ValidateNotNullOrEmpty()]
+    [string]$InstallDir = (Join-Path $env:LOCALAPPDATA "Programs\EnvManager")
 )
 
 $ErrorActionPreference = "Stop"
 
-$Repository = "WolfBublitz/EnvManager"
-$BinaryName = "EnvManager.exe"
-$AssetName = "EnvManager-win-x64.exe"
-
-if ($env:PROCESSOR_ARCHITECTURE -ne "AMD64" -and $env:PROCESSOR_ARCHITEW6432 -ne "AMD64") {
-    Write-Error "Unsupported architecture: $env:PROCESSOR_ARCHITECTURE. Only 64-bit Windows (x64) is supported."
-}
+$repository = "WolfBublitz/EnvManager"
+$binaryName = "EnvManager.exe"
+$architecture = if ([Environment]::Is64BitOperatingSystem) { "x64" } else { throw "Unsupported architecture: 32-bit Windows is not supported." }
+$assetName = "EnvManager-windows-$architecture.exe"
 
 if ($Version -eq "latest") {
-    $DownloadUrl = "https://github.com/$Repository/releases/latest/download/$AssetName"
+    $downloadUrl = "https://github.com/$repository/releases/latest/download/$assetName"
 }
 else {
-    $DownloadUrl = "https://github.com/$Repository/releases/download/$Version/$AssetName"
+    $downloadUrl = "https://github.com/$repository/releases/download/$Version/$assetName"
 }
 
-Write-Host "==> Downloading $AssetName ($Version)..." -ForegroundColor Green
+Write-Verbose "Downloading $assetName from $downloadUrl"
+New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null
 
-New-Item -ItemType Directory -Path $InstallDirectory -Force | Out-Null
-$DestinationPath = Join-Path $InstallDirectory $BinaryName
+$destinationPath = Join-Path $InstallDir $binaryName
+$temporaryPath = Join-Path ([IO.Path]::GetTempPath()) "$binaryName.$([guid]::NewGuid()).tmp"
 
 try {
-    Invoke-WebRequest -Uri $DownloadUrl -OutFile $DestinationPath -UseBasicParsing
+    Invoke-WebRequest -Uri $downloadUrl -OutFile $temporaryPath -UseBasicParsing
+    Move-Item -Path $temporaryPath -Destination $destinationPath -Force
 }
 catch {
-    Write-Error "Failed to download EnvManager from $DownloadUrl. $_"
+    throw "Failed to download EnvManager from $downloadUrl. $($_.Exception.Message)"
+}
+finally {
+    if (Test-Path -LiteralPath $temporaryPath) {
+        Remove-Item -LiteralPath $temporaryPath -Force
+    }
 }
 
-Write-Host "==> Installed EnvManager to $DestinationPath" -ForegroundColor Green
+Write-Host "==> Installed EnvManager to $destinationPath" -ForegroundColor Green
 
-# ┌────────────────────────────────────────────────────────────┐
-# │ Ensure the install directory is on the user's PATH          │
-# └────────────────────────────────────────────────────────────┘
+$userPath = [Environment]::GetEnvironmentVariable("Path", "User")
+$pathEntries = @($userPath -split ";" | Where-Object { $_ })
+$pathComparison = [StringComparer]::OrdinalIgnoreCase
 
-$UserPath = [Environment]::GetEnvironmentVariable("Path", "User")
-$PathEntries = $UserPath -split ";" | Where-Object { $_ -ne "" }
-
-if ($PathEntries -notcontains $InstallDirectory) {
-    $NewUserPath = ($PathEntries + $InstallDirectory) -join ";"
-    [Environment]::SetEnvironmentVariable("Path", $NewUserPath, "User")
-    $env:Path = "$env:Path;$InstallDirectory"
-    Write-Host "==> Added $InstallDirectory to your user PATH. Restart your terminal for it to take effect." -ForegroundColor Yellow
+if (-not ($pathEntries | Where-Object { $pathComparison.Equals($_, $InstallDir) })) {
+    $newUserPath = ($pathEntries + $InstallDir) -join ";"
+    [Environment]::SetEnvironmentVariable("Path", $newUserPath, "User")
+    $env:Path = "$env:Path;$InstallDir"
+    Write-Host "==> Added $InstallDir to your user PATH. Restart your terminal to load it." -ForegroundColor Yellow
 }
 
 Write-Host "==> Run 'EnvManager --help' to get started." -ForegroundColor Green
