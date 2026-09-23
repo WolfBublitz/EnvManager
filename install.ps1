@@ -38,13 +38,38 @@ $architecture = if ([Environment]::Is64BitOperatingSystem) { "x64" } else { thro
 $assetName = "EnvManager-windows-$architecture.exe"
 
 if ($Version -eq "latest") {
-    $downloadUrl = "https://github.com/$repository/releases/latest/download/$assetName"
+    $releaseApiUrl = "https://api.github.com/repos/$repository/releases/latest"
 }
 else {
-    $downloadUrl = "https://github.com/$repository/releases/download/$Version/$assetName"
+    $releaseApiUrl = "https://api.github.com/repos/$repository/releases/tags/$Version"
 }
 
-Write-Verbose "Downloading $assetName from $downloadUrl"
+$apiHeaders = @{ Accept = "application/vnd.github+json" }
+if ($env:GITHUB_TOKEN) {
+    $apiHeaders["Authorization"] = "Bearer $env:GITHUB_TOKEN"
+}
+
+Write-Verbose "Looking up release information from $releaseApiUrl"
+Write-Host "==> Looking up release information for $Version..." -ForegroundColor Green
+try {
+    $release = Invoke-RestMethod -Uri $releaseApiUrl -Headers $apiHeaders -UseBasicParsing
+}
+catch {
+    if ($_.Exception.Response -and [int]$_.Exception.Response.StatusCode -eq 404) {
+        throw "Release not found: $Version"
+    }
+    throw "Failed to fetch release information from $releaseApiUrl. $($_.Exception.Message)"
+}
+
+$asset = $release.assets | Where-Object { $_.name -eq $assetName } | Select-Object -First 1
+if (-not $asset) {
+    throw "No asset named '$assetName' found in release $($release.tag_name)."
+}
+
+$downloadUrl = $asset.browser_download_url
+$resolvedVersion = $release.tag_name
+
+Write-Host "==> Downloading $assetName ($resolvedVersion)..." -ForegroundColor Green
 New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null
 
 $destinationPath = Join-Path $InstallDir $binaryName
