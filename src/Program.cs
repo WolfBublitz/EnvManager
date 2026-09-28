@@ -8,6 +8,7 @@ using System.CommandLine;
 using System.Threading.Tasks;
 
 using EnvManager.CommandLine;
+using Spectre.Console;
 
 namespace EnvManager;
 
@@ -23,9 +24,17 @@ public static class Program
     /// <returns>The process exit code.</returns>
     public static async Task<int> Main(string[] args)
     {
+        AnsiConsole.Write(new FigletText("EnvManager"));
+        AnsiConsole.Write(new Rule(ApplicationVersion()));
+
         EnvManagerRootCommand rootCommand = new();
         ParseResult parseResult = rootCommand.Parse(args);
 
         return await parseResult.InvokeAsync().ConfigureAwait(false);
+    }
+
+    private static string ApplicationVersion()
+    {
+        return typeof(Program).Assembly.GetName().Version?.ToString() ?? "Unknown";
     }
 }
