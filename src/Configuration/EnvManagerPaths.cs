@@ -47,5 +47,5 @@ public static class EnvManagerPaths
     public static DirectoryInfo GitDirectory => new(Path.Combine(HomeDirectory.FullName, ".EnvManager", "repo"));
 
     /// <summary>Gets the path of the <c>environment.yaml</c> file at the root of <see cref="HomeDirectory"/>.</summary>
-    public static FileInfo EnvironmentFile => new(Path.Combine(HomeDirectory.FullName, "environment.yaml"));
+    public static FileInfo EnvironmentFile => new(Path.Combine(HomeDirectory.FullName, ".EnvManager", "config.yml"));
 }
