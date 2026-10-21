@@ -4,10 +4,14 @@
 // │ Created: 2026-09-18                                                            │
 // └────────────────────────────────────────────────────────────────────────────────┘
 
+using System.Collections.Frozen;
 using System.CommandLine;
+using System.Linq;
+using System.Reflection;
 using System.Threading.Tasks;
 
 using EnvManager.CommandLine;
+using Semver;
 using Spectre.Console;
 
 namespace EnvManager;
@@ -24,8 +28,7 @@ public static class Program
     /// <returns>The process exit code.</returns>
     public static async Task<int> Main(string[] args)
     {
-        AnsiConsole.Write(new FigletText("EnvManager"));
-        AnsiConsole.Write(new Rule(ApplicationVersion()));
+        PrintHeader();
 
         EnvManagerRootCommand rootCommand = new();
         ParseResult parseResult = rootCommand.Parse(args);
@@ -33,8 +36,27 @@ public static class Program
         return await parseResult.InvokeAsync().ConfigureAwait(false);
     }
 
-    private static string ApplicationVersion()
+    private static void PrintHeader()
     {
-        return typeof(Program).Assembly.GetName().Version?.ToString() ?? "Unknown";
+        AnsiConsole.Write(new FigletText("EnvManager")
+        {
+            Color = Color.Blue,
+        });
+
+        AnsiConsole.Write(new Rule(ApplicationVersion.ToString())
+        {
+            Justification = Justify.Left,
+        });
+    }
+
+    private static SemVersion ApplicationVersion
+    {
+        get {
+            AssemblyInformationalVersionAttribute? attribute = typeof(Program).Assembly.GetCustomAttributes<AssemblyInformationalVersionAttribute>().FirstOrDefault() as AssemblyInformationalVersionAttribute;
+        
+            SemVersion version = SemVersion.Parse(attribute?.InformationalVersion ?? "0.0.0");
+
+            return version.WithoutMetadata();
+        }
     }
 }

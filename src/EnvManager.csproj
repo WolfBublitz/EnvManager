@@ -20,6 +20,7 @@
     <PackageReference Include="Spectre.Console" />
     <PackageReference Include="System.CommandLine" />
     <PackageReference Include="YamlDotNet" />
+    <PackageReference Include="SemVer" />
   </ItemGroup>
 
 </Project>
