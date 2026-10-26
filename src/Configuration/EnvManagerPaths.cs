@@ -46,6 +46,10 @@ public static class EnvManagerPaths
     /// <summary>Gets the bare git repository directory backing <see cref="HomeDirectory"/>.</summary>
     public static DirectoryInfo GitDirectory => new(Path.Combine(HomeDirectory.FullName, ".EnvManager", "repo"));
 
-    /// <summary>Gets the path of the <c>environment.yaml</c> file at the root of <see cref="HomeDirectory"/>.</summary>
+    /// <summary>Gets the repository-relative path of the internal environment configuration file.</summary>
+    public static string EnvironmentFileRelativePath
+        => Path.GetRelativePath(HomeDirectory.FullName, EnvironmentFile.FullName).Replace(Path.DirectorySeparatorChar, '/');
+
+    /// <summary>Gets the path of the internal environment configuration file.</summary>
     public static FileInfo EnvironmentFile => new(Path.Combine(HomeDirectory.FullName, ".EnvManager", "config.yml"));
 }

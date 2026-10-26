@@ -105,6 +105,16 @@ git --git-dir=$HOME/.EnvManager/repo --work-tree=$HOME [command]
 
 EnvManager shall move all files that might be overwritten by the environment configuration to a safe location before checking out a new branch.
 
+### Errors
+
+In case of errors during Git operations, EnvManager shall provide meaningful error messages to help the user understand and resolve the issue.
+
+Always provide:
+
+- The Git command that failed.
+- The exit code of the Git command.
+- The standard output and standard error of the Git command.
+
 ## Command Line Interface (CLI)
 
 The EnvManager project will provide a command-line interface (CLI) for managing user environment configurations. The CLI will support the following commands:
@@ -124,6 +134,10 @@ envmanager:
     remove: # Removes an existing tool or configuration.
     list:   # Lists all tools and configurations.
     update: # Updates an existing tool or configuration.
+  shells:
+    add:    # Enables a shell and installs its profile loader.
+    remove: # Disables a shell and restores its backed-up profile files.
+    list:   # Lists shells configured for the current environment.
   file:
     add:    # Adds a new file or configuration (to the repository)
     remove: # Removes an existing file or configuration (from the repository)
@@ -150,6 +164,7 @@ Commands:
   clone       Clones the environment configuration.
   variable    Manage environment variables and configurations.
   tools       Manage tools and configurations.
+  shells      Manage supported shells and their profile integration.
   push        Push the current environment configuration to the remote repository.
   pull        Pull the latest environment configuration from the remote repository.
   switch      Switch to a different environment configuration.
@@ -372,6 +387,72 @@ Possible shells include:
 | fish       | Linux, macOS          |
 | powershell | Linux, macOS, Windows |
 | cmd        | Windows               |
+
+Use `shells add <shell>` to install a loader and back up any existing profile under `$HOME/.EnvManager/backups/shell-profiles`. Use `shells remove <shell>` to restore the original profile files when the installed loader has not been modified.
+
+#### Bash
+
+For bash the existing profile files (e.g., `~/.bashrc`, `~/.bash_profile`) shall be replaced by:
+
+```bash
+for file in "$HOME/.EnvManager/bash/"*.sh; do
+    [ -f "$file" ] && source "$file"
+done
+```
+
+The original profile files shall be backed up before being replaced.
+
+#### Zsh
+
+For zsh the existing profile files (e.g., `~/.zshrc`, `~/.zprofile`) shall be replaced by:
+
+```bash
+for file in "$HOME/.EnvManager/zsh/"*.sh; do
+    [ -f "$file" ] && source "$file"
+done
+```
+
+The original profile files shall be backed up before being replaced.
+
+#### Fish
+
+For fish the existing profile files (e.g., `~/.config/fish/config.fish`) shall be replaced by:
+
+```bash
+if test -d $HOME/.EnvManager/fish
+    for file in $HOME/.EnvManager/fish/*.fish
+        source "$file"
+    end
+end
+```
+
+The original profile files shall be backed up before being replaced.
+
+#### PowerShell
+
+For PowerShell the existing profile files (e.g., `$PROFILE`) shall be replaced by:
+
+```powershell
+$path = "$HOME/.EnvManager/powershell"
+
+if (Test-Path $path) {
+    Get-ChildItem $path -Filter *.ps1 -File | ForEach-Object { . $_.FullName }
+}
+```
+
+The original profile files shall be backed up before being replaced.
+
+#### CMD
+
+For CMD the existing profile files (e.g., `C:\Users\<User>\_cmdrc`) shall be replaced by:
+
+```cmd
+for %%f in "%USERPROFILE%\.EnvManager\cmd\*" do (
+    if exist "%%f" call "%%f"
+)
+```
+
+The original profile files shall be backed up before being replaced.
 
 ### Tools
 

@@ -16,6 +16,7 @@ review changes to your setup like any other code.
 - **Git-backed configuration**: every environment is a branch containing a single
   `environment.yaml` file, so changes are versioned and can be pushed/pulled between machines.
 - **Multiple environments**: switch between environments (branches) at any time.
+- **Shell integration**: configure bash, zsh, fish, PowerShell, and CMD profile loaders with automatic backups of existing profile files.
 - Color-coded CLI output (green for success, red for errors, yellow for warnings, blue for info)
   using [Spectre.Console](https://spectreconsole.net/).
 
@@ -122,6 +123,7 @@ Commands:
   variable                    Manage environment variables and configurations.
   tools                       Manage tools and configurations.
   files                       Manage files and configurations in the environment repository.
+  shells                      Manage supported shells and their profile integration.
   push                        Pushes the current environment configuration to the remote repository.
   pull                        Pulls the latest environment configuration from the remote repository.
   switch <environment_name>   Switches to a different environment configuration.
@@ -149,6 +151,21 @@ The package manager is auto-detected from your operating system and installed to
 unless `--package-manager` is specified explicitly. Supported package managers: `apt`,
 `dnf`, `yum`, `zypper`, `brew`, `scoop`, `choco`, `winget`.
 
+### Shells
+
+```bash
+EnvManager shells add <shell_name>    # Enable a shell and install its profile loader
+EnvManager shells remove <shell_name> # Disable a shell and restore its original profile
+EnvManager shells list                # List shells configured for this environment
+```
+
+Supported shells are `bash`, `zsh`, `fish`, `powershell`, and `cmd`, subject to the
+operating-system support described in [SPECIFICATION.md](SPECIFICATION.md#shells).
+Before replacing an existing profile, EnvManager backs it up under
+`$HOME/.EnvManager/backups/shell-profiles`. Shell-specific files loaded by the profile
+shims belong in `$HOME/.EnvManager/<shell>/` and can be versioned with `files add`: use
+`.sh` files for bash/zsh, `.fish` for fish, and `.ps1` for PowerShell.
+
 ### Files
 
 ```bash
@@ -174,7 +191,8 @@ locally or on the remote.
 Before checking out an environment, EnvManager moves every existing file tracked by either
 the current or destination environment into a unique backup directory under
 `$HOME/.EnvManager/repo/overwritten-files`. This prevents a branch switch from overwriting
-local files; the destination environment's version is then checked out normally.
+local files; the destination environment's version is then checked out normally. Git failures report the
+failed command, exit code, standard output, and standard error.
 
 ## Configuration Storage
 

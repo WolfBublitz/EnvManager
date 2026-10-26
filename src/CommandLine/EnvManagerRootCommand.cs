@@ -7,6 +7,7 @@
 using System.CommandLine;
 
 using EnvManager.CommandLine.Files;
+using EnvManager.CommandLine.Shells;
 using EnvManager.CommandLine.Tools;
 using EnvManager.CommandLine.Variable;
 
@@ -15,7 +16,7 @@ namespace EnvManager.CommandLine;
 /// <summary>
 /// The top-level EnvManager CLI command, wiring together every subcommand described in
 /// the project specification: <c>clone</c>, <c>init</c>, <c>variable</c>, <c>tools</c>,
-/// <c>files</c>, <c>push</c>, <c>pull</c>, and <c>switch</c>.
+/// <c>files</c>, <c>shells</c>, <c>push</c>, <c>pull</c>, and <c>switch</c>.
 /// </summary>
 public sealed class EnvManagerRootCommand : RootCommand
 {
@@ -31,6 +32,7 @@ public sealed class EnvManagerRootCommand : RootCommand
         this.Add(new InitCommand());
         this.Add(new VariableCommand());
         this.Add(new ToolsCommand());
+        this.Add(new ShellsCommand());
         this.Add(new FilesCommand());
         this.Add(new PushCommand());
         this.Add(new PullCommand());

@@ -9,5 +9,7 @@
     <PackageVersion Include="System.CommandLine" Version="2.0.12" />
     <PackageVersion Include="YamlDotNet" Version="18.1.0" />
     <PackageVersion Include="SemVer" Version="3.0.0" />
+    <PackageVersion Include="TUnit" Version="1.66.27" />
+    <PackageVersion Include="TUnit.Assertions" Version="1.66.27" />
   </ItemGroup>
 </Project>

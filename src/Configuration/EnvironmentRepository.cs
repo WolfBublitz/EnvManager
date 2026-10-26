@@ -150,7 +150,7 @@ public sealed class EnvironmentRepository
     {
         this.serializer.Save(EnvManagerPaths.EnvironmentFile, configuration);
 
-        await this.Git.AddAsync("environment.yaml", cancellationToken).ConfigureAwait(false);
+        await this.Git.AddAsync(EnvManagerPaths.EnvironmentFileRelativePath, cancellationToken).ConfigureAwait(false);
         await this.Git.CommitAsync(commitMessage, cancellationToken).ConfigureAwait(false);
     }
 
@@ -224,7 +224,7 @@ public sealed class EnvironmentRepository
         IReadOnlyList<string> trackedFiles = await this.Git.ListTrackedFilesAsync(cancellationToken).ConfigureAwait(false);
 
         return trackedFiles
-            .Where(path => !string.Equals(path, "environment.yaml", StringComparison.Ordinal))
+            .Where(path => !string.Equals(path, EnvManagerPaths.EnvironmentFileRelativePath, StringComparison.Ordinal))
             .OrderBy(path => path, StringComparer.Ordinal)
             .ToList();
     }
@@ -267,6 +267,16 @@ public sealed class EnvironmentRepository
             throw new ConfigurationException($"'{fileName}' is outside of the home directory ('{homeDirectory}') managed by EnvManager.");
         }
 
-        return relativePath.Replace(Path.DirectorySeparatorChar, '/');
+        string gitRelativePath = relativePath.Replace(Path.DirectorySeparatorChar, '/');
+        StringComparison comparison = OperatingSystem.IsWindows() || OperatingSystem.IsMacOS()
+            ? StringComparison.OrdinalIgnoreCase
+            : StringComparison.Ordinal;
+
+        if (string.Equals(gitRelativePath, EnvManagerPaths.EnvironmentFileRelativePath, comparison))
+        {
+            throw new ConfigurationException($"'{EnvManagerPaths.EnvironmentFileRelativePath}' is managed internally and cannot be added or removed as a user file.");
+        }
+
+        return gitRelativePath;
     }
 }

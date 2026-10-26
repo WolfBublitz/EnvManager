@@ -92,7 +92,8 @@ public sealed class GitClient
 
         if (!cloneResult.Succeeded)
         {
-            throw new GitCommandException($"clone --bare {repositoryUrl}", cloneResult.ExitCode, cloneResult.StandardError);
+            string cloneArguments = $"clone --bare {repositoryUrl} {this.GitDirectory.FullName}";
+            throw new GitCommandException(cloneArguments, $"git {cloneArguments}", cloneResult.ExitCode, cloneResult.StandardOutput, cloneResult.StandardError);
         }
 
         await this.ConfigureAsync(cancellationToken).ConfigureAwait(false);
@@ -338,7 +339,7 @@ public sealed class GitClient
         // The bare repository mirrors 'refs/heads/*' directly (rather than tracking
         // remote branches under 'refs/remotes/origin/*'), so the remote and branch are
         // named explicitly instead of relying on upstream tracking configuration.
-        await this.RunOrThrowAsync(["pull", "--ff-only", "origin", branch], cancellationToken).ConfigureAwait(false);
+        await this.RunOrThrowAsync(["pull", "origin", branch], cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -448,7 +449,7 @@ public sealed class GitClient
 
         if (!result.Succeeded)
         {
-            throw new GitCommandException(string.Join(' ', arguments), result.ExitCode, result.StandardError);
+            throw new GitCommandException(string.Join(' ', arguments), result.ExitCode, result.StandardOutput, result.StandardError);
         }
     }
 
@@ -459,7 +460,10 @@ public sealed class GitClient
 
         if (!result.Succeeded)
         {
-            throw new GitCommandException(string.Join(' ', arguments), result.ExitCode, result.StandardError);
+            string operationArguments = string.Join(' ', arguments);
+            string command = $"git {string.Join(' ', this.RepositoryArguments.Concat(arguments))}";
+
+            throw new GitCommandException(operationArguments, command, result.ExitCode, result.StandardOutput, result.StandardError);
         }
 
         return result;
@@ -511,7 +515,7 @@ public sealed class GitClient
         }
         catch (Exception exception) when (exception is InvalidOperationException or System.ComponentModel.Win32Exception)
         {
-            throw new GitCommandException(exception);
+            throw new GitCommandException($"git {string.Join(' ', arguments)}", exception);
         }
 
         process.BeginOutputReadLine();
