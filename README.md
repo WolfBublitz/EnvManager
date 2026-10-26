@@ -214,8 +214,10 @@ locally or on the remote.
 Before checking out an environment, EnvManager moves every existing file tracked by either
 the current or destination environment into a unique backup directory under
 `$HOME/.EnvManager/repo/overwritten-files`. This prevents a branch switch from overwriting
-local files; the destination environment's version is then checked out normally. Git failures report the
-failed command, exit code, standard output, and standard error.
+local files; the destination environment's version is then checked out normally. When
+cloning, files from the remote's default branch are also backed up if present, since Git
+may otherwise refuse to switch to the requested environment. Git failures report the failed
+command, exit code, standard output, and standard error.
 
 ## Configuration Storage
 

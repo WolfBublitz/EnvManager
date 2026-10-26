@@ -13,6 +13,100 @@ namespace EnvManager.Tests;
 public sealed class GitPullTests
 {
     [Test]
+    public async Task ClonePreservesFilesFromDefaultBranchWhenCheckingOutAnotherBranch()
+    {
+        DirectoryInfo root = CreateRoot();
+
+        try
+        {
+            DirectoryInfo source = root.CreateSubdirectory("source");
+            DirectoryInfo remote = new(Path.Combine(root.FullName, "remote.git"));
+            DirectoryInfo home = root.CreateSubdirectory("home");
+            await RunGitAsync(source, "init", "--initial-branch=main");
+            await RunGitAsync(source, "config", "user.name", "Test User");
+            await RunGitAsync(source, "config", "user.email", "test@example.com");
+            File.WriteAllText(Path.Combine(source.FullName, ".bashrc"), "default branch");
+            File.WriteAllText(Path.Combine(source.FullName, ".zshrc"), "default branch");
+            File.WriteAllText(Path.Combine(source.FullName, "profile settings"), "default branch");
+            if (!OperatingSystem.IsWindows())
+            {
+                File.WriteAllText(Path.Combine(source.FullName, "profile\nsettings"), "default branch");
+            }
+            await RunGitAsync(source, "add", ".");
+            await RunGitAsync(source, "commit", "-m", "default branch");
+            await RunGitAsync(source, "checkout", "--orphan", "Linux");
+            await RunGitAsync(source, "rm", "--cached", "-r", ".");
+            File.Delete(Path.Combine(source.FullName, ".bashrc"));
+            File.Delete(Path.Combine(source.FullName, ".zshrc"));
+            File.Delete(Path.Combine(source.FullName, "profile settings"));
+            if (!OperatingSystem.IsWindows())
+            {
+                File.Delete(Path.Combine(source.FullName, "profile\nsettings"));
+            }
+            File.WriteAllText(Path.Combine(source.FullName, "settings"), "Linux branch");
+            await RunGitAsync(source, "add", "settings");
+            await RunGitAsync(source, "commit", "-m", "Linux branch");
+            await RunGitAsync(source, "checkout", "main");
+            await RunGitAsync(root, "clone", "--bare", source.FullName, remote.FullName);
+
+            File.WriteAllText(Path.Combine(home.FullName, ".bashrc"), "existing bash");
+            File.WriteAllText(Path.Combine(home.FullName, ".zshrc"), "existing zsh");
+            File.WriteAllText(Path.Combine(home.FullName, "profile settings"), "existing profile");
+            if (!OperatingSystem.IsWindows())
+            {
+                File.WriteAllText(Path.Combine(home.FullName, "profile\nsettings"), "existing multiline profile");
+            }
+            File.WriteAllText(Path.Combine(home.FullName, "settings"), "existing settings");
+            File.WriteAllText(Path.Combine(home.FullName, "unrelated"), "keep me");
+            GitClient client = new(home, new DirectoryInfo(Path.Combine(home.FullName, ".EnvManager", "repo")));
+
+            await client.CloneAsync(new Uri(remote.FullName), "Linux");
+
+            string[] backups = Directory.GetDirectories(Path.Combine(client.GitDirectory.FullName, "overwritten-files"));
+            await Assert.That(backups.Length).IsEqualTo(1);
+            await Assert.That(File.ReadAllText(Path.Combine(backups[0], ".bashrc"))).IsEqualTo("existing bash");
+            await Assert.That(File.ReadAllText(Path.Combine(backups[0], ".zshrc"))).IsEqualTo("existing zsh");
+            await Assert.That(File.ReadAllText(Path.Combine(backups[0], "profile settings"))).IsEqualTo("existing profile");
+            if (!OperatingSystem.IsWindows())
+            {
+                await Assert.That(File.ReadAllText(Path.Combine(backups[0], "profile\nsettings"))).IsEqualTo("existing multiline profile");
+            }
+            await Assert.That(File.ReadAllText(Path.Combine(backups[0], "settings"))).IsEqualTo("existing settings");
+            await Assert.That(File.ReadAllText(Path.Combine(home.FullName, "settings"))).IsEqualTo("Linux branch");
+            await Assert.That(File.ReadAllText(Path.Combine(home.FullName, "unrelated"))).IsEqualTo("keep me");
+            await Assert.That(await client.GetCurrentBranchAsync()).IsEqualTo("Linux");
+
+            DirectoryInfo retryHome = root.CreateSubdirectory("retry-home");
+            DirectoryInfo retryGit = new(Path.Combine(retryHome.FullName, ".EnvManager", "repo"));
+            retryGit.Parent!.Create();
+            await RunGitAsync(root, "clone", "--bare", remote.FullName, retryGit.FullName);
+            File.WriteAllText(Path.Combine(retryHome.FullName, ".bashrc"), "retry bash");
+            File.WriteAllText(Path.Combine(retryHome.FullName, ".zshrc"), "retry zsh");
+            GitClient retryClient = new(retryHome, retryGit);
+            GitCommandResult failedCheckout = await retryClient.RunAsync(["checkout", "Linux"]);
+            await Assert.That(failedCheckout.Succeeded).IsFalse();
+
+            await retryClient.CheckoutBranchAsync("Linux", allowCreate: false);
+
+            string[] retryBackups = Directory.GetDirectories(Path.Combine(retryGit.FullName, "overwritten-files"));
+            await Assert.That(retryBackups.Length).IsEqualTo(1);
+            await Assert.That(File.ReadAllText(Path.Combine(retryBackups[0], ".bashrc"))).IsEqualTo("retry bash");
+            await Assert.That(File.ReadAllText(Path.Combine(retryBackups[0], ".zshrc"))).IsEqualTo("retry zsh");
+            await Assert.That(File.ReadAllText(Path.Combine(retryHome.FullName, "settings"))).IsEqualTo("Linux branch");
+            await Assert.That(await retryClient.GetCurrentBranchAsync()).IsEqualTo("Linux");
+
+            await retryClient.CheckoutBranchAsync("new-environment", allowCreate: true);
+
+            await Assert.That(await retryClient.GetCurrentBranchAsync()).IsEqualTo("new-environment");
+            await Assert.That(File.Exists(Path.Combine(retryHome.FullName, "settings"))).IsFalse();
+        }
+        finally
+        {
+            Directory.Delete(root.FullName, recursive: true);
+        }
+    }
+
+    [Test]
     public async Task PullReplacesDivergedBranchAndConflictingFiles()
     {
         DirectoryInfo root = CreateRoot();

@@ -9,7 +9,6 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -396,6 +395,18 @@ public sealed class GitClient
             filesToPreserve = currentFiles.Concat(destinationFiles);
         }
 
+        GitCommandResult head = await this.RunAsync(["rev-parse", "--verify", "--quiet", "HEAD"], cancellationToken).ConfigureAwait(false);
+        if (head.Succeeded)
+        {
+            filesToPreserve = filesToPreserve.Concat(await this.ListTrackedFilesAsync("HEAD", cancellationToken).ConfigureAwait(false));
+        }
+        else if (head.ExitCode != 1)
+        {
+            const string arguments = "rev-parse --verify --quiet HEAD";
+            string command = $"git {string.Join(' ', this.RepositoryArguments)} {arguments}";
+            throw new GitCommandException(arguments, command, head.ExitCode, head.StandardOutput, head.StandardError);
+        }
+
         List<string> existingFiles = filesToPreserve
             .Distinct(StringComparer.Ordinal)
             .Where(relativePath => File.Exists(Path.Combine(this.WorkingDirectory.FullName, relativePath)))
@@ -434,10 +445,10 @@ public sealed class GitClient
     /// <param name="cancellationToken">A token to cancel the operation.</param>
     private async Task<IReadOnlyList<string>> ListTrackedFilesAsync(string branch, CancellationToken cancellationToken)
     {
-        GitCommandResult result = await this.RunOrThrowAsync(["ls-tree", "-r", "--name-only", branch], cancellationToken).ConfigureAwait(false);
+        GitCommandResult result = await this.RunOrThrowAsync(["ls-tree", "-r", "--name-only", "-z", branch], cancellationToken).ConfigureAwait(false);
 
         return result.StandardOutput
-            .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Split('\0', StringSplitOptions.RemoveEmptyEntries)
             .ToList();
     }
 
@@ -494,24 +505,6 @@ public sealed class GitClient
             StartInfo = startInfo,
         };
 
-        StringBuilder standardOutput = new();
-        StringBuilder standardError = new();
-
-        process.OutputDataReceived += (_, eventArguments) =>
-        {
-            if (eventArguments.Data is not null)
-            {
-                standardOutput.AppendLine(eventArguments.Data);
-            }
-        };
-        process.ErrorDataReceived += (_, eventArguments) =>
-        {
-            if (eventArguments.Data is not null)
-            {
-                standardError.AppendLine(eventArguments.Data);
-            }
-        };
-
         try
         {
             process.Start();
@@ -521,11 +514,14 @@ public sealed class GitClient
             throw new GitCommandException($"git {string.Join(' ', arguments)}", exception);
         }
 
-        process.BeginOutputReadLine();
-        process.BeginErrorReadLine();
+        Task<string> standardOutput = process.StandardOutput.ReadToEndAsync(cancellationToken);
+        Task<string> standardError = process.StandardError.ReadToEndAsync(cancellationToken);
 
         await process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
 
-        return new GitCommandResult(process.ExitCode, standardOutput.ToString().TrimEnd(), standardError.ToString().TrimEnd());
+        return new GitCommandResult(
+            process.ExitCode,
+            (await standardOutput.ConfigureAwait(false)).TrimEnd(),
+            (await standardError.ConfigureAwait(false)).TrimEnd());
     }
 }
