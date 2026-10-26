@@ -291,6 +291,11 @@ public sealed class GitClient
     {
         GitCommandResult result = await this.RunAsync(["ls-files", "--error-unmatch", "--", relativePath], cancellationToken).ConfigureAwait(false);
 
+        if (result.ExitCode is not (0 or 1))
+        {
+            throw new GitCommandException($"ls-files --error-unmatch -- {relativePath}", result.ExitCode, result.StandardOutput, result.StandardError);
+        }
+
         return result.Succeeded;
     }
 

@@ -179,7 +179,12 @@ EnvManager shells list                # List shells configured for this environm
 Supported shells are `bash`, `zsh`, `fish`, `powershell`, and `cmd`, subject to the
 operating-system support described in [SPECIFICATION.md](SPECIFICATION.md#shells).
 Before replacing an existing profile, EnvManager backs it up under
-`$HOME/.EnvManager/backups/shell-profiles`. Shell-specific files loaded by the profile
+`$HOME/.EnvManager/backups/shell-profiles`. Newly tracked loader profiles are committed
+and pushed to `origin` by `shells add`; this also pushes any earlier local commits.
+If no remote is configured or the push fails, the local commit remains; configure or
+repair the remote and run `EnvManager push` to retry. Already tracked profile files
+are not staged again, but any changes already staged are included in the commit.
+Shell-specific files loaded by the profile
 shims belong in `$HOME/.EnvManager/<shell>/` and can be versioned with `files add`: use
 `.sh` files for bash/zsh, `.fish` for fish, and `.ps1` for PowerShell.
 

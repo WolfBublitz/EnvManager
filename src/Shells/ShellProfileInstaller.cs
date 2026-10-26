@@ -63,7 +63,8 @@ internal sealed class ShellProfileInstaller
 
     /// <summary>Backs up and replaces the profile files for the requested shell.</summary>
     /// <param name="shellName">A supported shell name.</param>
-    public void Install(string shellName)
+    /// <returns>The home-relative paths of the installed profile files.</returns>
+    public IReadOnlyList<string> Install(string shellName)
     {
         string normalizedName = this.NormalizeShellName(shellName);
         ShellProfile profile = this.GetProfile(normalizedName);
@@ -95,6 +96,8 @@ internal sealed class ShellProfileInstaller
             profileFile.Directory?.Create();
             File.WriteAllText(profileFile.FullName, profile.Content);
         }
+
+        return profile.ProfilePaths;
     }
 
     /// <summary>Restores backed-up profile files or removes loader files created by EnvManager.</summary>

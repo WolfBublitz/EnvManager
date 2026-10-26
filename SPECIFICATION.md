@@ -397,6 +397,12 @@ Possible shells include:
 
 Use `shells add <shell>` to install a loader and back up any existing profile under `$HOME/.EnvManager/backups/shell-profiles`. Use `shells remove <shell>` to restore the original profile files when the installed loader has not been modified.
 
+When a loader profile is not tracked in the current environment, `shells add` shall
+commit it and push the current branch to `origin`. Existing tracked profiles shall not
+be staged again by this operation, though any already staged changes are included in
+the commit. A failed push shall be reported and leave the local commit available for a
+later `push`; pushing also publishes any earlier local commits.
+
 #### Bash
 
 For bash the existing profile files (e.g., `~/.bashrc`, `~/.bash_profile`) shall be replaced by:

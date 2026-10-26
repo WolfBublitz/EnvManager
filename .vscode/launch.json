@@ -113,6 +113,17 @@
             "cwd": "${workspaceFolder}",
             "stopAtEntry": false,
             "console": "integratedTerminal"
+        },
+        {
+            "name": "shells add bash",
+            "type": "coreclr",
+            "request": "launch",
+            "preLaunchTask": "dotnet: build",
+            "program": "${workspaceFolder}/src/bin/Debug/net11.0/EnvManager.dll",
+            "args": ["shells", "add", "${input:shellName}"],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": false,
+            "console": "integratedTerminal"
         }
     ],
     "inputs": [
@@ -125,6 +136,11 @@
             "id": "environmentName",
             "type": "promptString",
             "description": "The name of the environment to switch to."
+        },
+        {
+            "id": "shellName",
+            "type": "promptString",
+            "description": "The name of the shell to add."
         }
     ]
 }
