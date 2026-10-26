@@ -10,8 +10,6 @@ using System.Linq;
 using EnvManager.Configuration;
 using EnvManager.PackageManagers;
 
-using Spectre.Console;
-
 namespace EnvManager.CommandLine.Tools;
 
 /// <summary>
@@ -46,8 +44,8 @@ public sealed class ToolsAddCommand : Command
                 ? await PackageManagerFactory.DetectAsync(cancellationToken).ConfigureAwait(false)
                 : PackageManagerFactory.GetByName(requestedPackageManager);
 
-            await AnsiConsole.Status().StartAsync($"Installing '{toolName}' using '{packageManager.Name}'...", async _ =>
-                await packageManager.InstallAsync(toolName, version, cancellationToken).ConfigureAwait(false)).ConfigureAwait(false);
+            await ConsoleReporter.RunPackageOperationAsync(packageManager, $"Installing '{toolName}' using '{packageManager.Name}'...",
+                () => packageManager.InstallAsync(toolName, version, cancellationToken)).ConfigureAwait(false);
 
             EnvironmentRepository repository = EnvironmentRepository.OpenExisting();
             EnvironmentConfiguration configuration = await repository.LoadConfigurationAsync(cancellationToken).ConfigureAwait(false);

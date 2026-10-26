@@ -11,8 +11,6 @@ using EnvManager.Configuration;
 using EnvManager.Exceptions;
 using EnvManager.PackageManagers;
 
-using Spectre.Console;
-
 namespace EnvManager.CommandLine.Tools;
 
 /// <summary>
@@ -47,8 +45,8 @@ public sealed class ToolsRemoveCommand : Command
                 ? await PackageManagerFactory.DetectAsync(cancellationToken).ConfigureAwait(false)
                 : PackageManagerFactory.GetByName(tool.PackageManager);
 
-            await AnsiConsole.Status().StartAsync($"Removing '{toolName}' using '{packageManager.Name}'...", async _ =>
-                await packageManager.RemoveAsync(toolName, cancellationToken).ConfigureAwait(false)).ConfigureAwait(false);
+            await ConsoleReporter.RunPackageOperationAsync(packageManager, $"Removing '{toolName}' using '{packageManager.Name}'...",
+                () => packageManager.RemoveAsync(toolName, cancellationToken)).ConfigureAwait(false);
 
             configuration.Tools.Remove(tool);
 

@@ -22,6 +22,9 @@ public interface IPackageManager
     /// <summary>Gets the identifier of the package manager, e.g. "brew" or "apt".</summary>
     string Name { get; }
 
+    /// <summary>Gets whether package operations require Linux administrator privileges.</summary>
+    bool RequiresElevation { get; }
+
     // ┌────────────────────────────────────────────────────────────────────────────────┐
     // │ public Method                                                                   │
     // └────────────────────────────────────────────────────────────────────────────────┘

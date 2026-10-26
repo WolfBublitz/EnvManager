@@ -18,6 +18,9 @@ public sealed class YumPackageManager : PackageManagerBase
     /// <inheritdoc/>
     public override string Name => "yum";
 
+    /// <inheritdoc/>
+    public override bool RequiresElevation => true;
+
     // ┌────────────────────────────────────────────────────────────────────────────────┐
     // │ protected Property                                                              │
     // └────────────────────────────────────────────────────────────────────────────────┘

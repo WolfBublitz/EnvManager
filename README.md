@@ -167,6 +167,10 @@ EnvManager tools list
 The package manager is auto-detected from your operating system and installed tooling
 unless `--package-manager` is specified explicitly. Supported package managers: `apt`,
 `dnf`, `yum`, `zypper`, `brew`, `scoop`, `choco`, `winget`.
+On Linux, `apt`, `dnf`, `yum`, and `zypper` operations run through `sudo` when
+EnvManager is not already root. `sudo` may prompt in the terminal for the
+password required by its policy; EnvManager does not collect or store it.
+Unattended use requires an appropriate non-interactive sudo configuration.
 
 ### Shells
 

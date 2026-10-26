@@ -4,6 +4,11 @@
 // │ Created: 2026-09-18                                                            │
 // └────────────────────────────────────────────────────────────────────────────────┘
 
+using System;
+using System.Threading.Tasks;
+
+using EnvManager.PackageManagers;
+
 using Spectre.Console;
 
 namespace EnvManager.CommandLine;
@@ -38,4 +43,18 @@ public static class ConsoleReporter
     /// <param name="message">The message to render. Treated as plain text, not markup.</param>
     public static void Info(string message)
         => AnsiConsole.MarkupLineInterpolated($"[blue]{message}[/]");
+
+    /// <summary>Runs a package operation without a spinner when sudo may prompt on the terminal.</summary>
+    public static async Task RunPackageOperationAsync(IPackageManager packageManager, string message, Func<Task> action)
+    {
+        if (OperatingSystem.IsLinux() && packageManager.RequiresElevation)
+        {
+            Info(message);
+            await action().ConfigureAwait(false);
+        }
+        else
+        {
+            await AnsiConsole.Status().StartAsync(message, async _ => await action().ConfigureAwait(false)).ConfigureAwait(false);
+        }
+    }
 }

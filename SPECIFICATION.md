@@ -486,6 +486,10 @@ EnvManager supports the following package managers:
 | choco           | Windows          |
 | winget          | Windows          |
 
+On Linux, package operations for apt, dnf, yum, and zypper require administrator
+privileges. When not already running as root, EnvManager invokes them via sudo,
+which handles any authentication prompt. Availability checks do not require elevation.
+
 ### Environment Variables
 
 EnvManager allows you to manage environment variables efficiently. You can set, update, remove, and list environment variables using the respective commands.

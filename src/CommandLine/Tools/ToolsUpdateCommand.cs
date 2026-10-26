@@ -12,8 +12,6 @@ using EnvManager.Configuration;
 using EnvManager.Exceptions;
 using EnvManager.PackageManagers;
 
-using Spectre.Console;
-
 namespace EnvManager.CommandLine.Tools;
 
 /// <summary>
@@ -62,8 +60,8 @@ public sealed class ToolsUpdateCommand : Command
                     ? await PackageManagerFactory.DetectAsync(cancellationToken).ConfigureAwait(false)
                     : PackageManagerFactory.GetByName(tool.PackageManager);
 
-                await AnsiConsole.Status().StartAsync($"Updating '{tool.Name}' using '{packageManager.Name}'...", async _ =>
-                    await packageManager.UpdateAsync(tool.Name, cancellationToken).ConfigureAwait(false)).ConfigureAwait(false);
+                await ConsoleReporter.RunPackageOperationAsync(packageManager, $"Updating '{tool.Name}' using '{packageManager.Name}'...",
+                    () => packageManager.UpdateAsync(tool.Name, cancellationToken)).ConfigureAwait(false);
 
                 ConsoleReporter.Success($"Updated tool '{tool.Name}'.");
             }

@@ -18,6 +18,9 @@ public sealed class ZypperPackageManager : PackageManagerBase
     /// <inheritdoc/>
     public override string Name => "zypper";
 
+    /// <inheritdoc/>
+    public override bool RequiresElevation => true;
+
     // ┌────────────────────────────────────────────────────────────────────────────────┐
     // │ protected Property                                                              │
     // └────────────────────────────────────────────────────────────────────────────────┘

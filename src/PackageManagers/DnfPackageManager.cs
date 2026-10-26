@@ -18,6 +18,9 @@ public sealed class DnfPackageManager : PackageManagerBase
     /// <inheritdoc/>
     public override string Name => "dnf";
 
+    /// <inheritdoc/>
+    public override bool RequiresElevation => true;
+
     // ┌────────────────────────────────────────────────────────────────────────────────┐
     // │ protected Property                                                              │
     // └────────────────────────────────────────────────────────────────────────────────┘

@@ -8,8 +8,7 @@ namespace EnvManager.PackageManagers;
 
 /// <summary>
 /// <see cref="IPackageManager"/> implementation for Debian/Ubuntu-based systems using
-/// <c>apt-get</c>. Callers are expected to already have the necessary privileges (e.g.
-/// running as root or via <c>sudo</c>) since apt requires elevation to install packages.
+/// <c>apt-get</c>.
 /// </summary>
 public sealed class AptPackageManager : PackageManagerBase
 {
@@ -19,6 +18,9 @@ public sealed class AptPackageManager : PackageManagerBase
 
     /// <inheritdoc/>
     public override string Name => "apt";
+
+    /// <inheritdoc/>
+    public override bool RequiresElevation => true;
 
     // ┌────────────────────────────────────────────────────────────────────────────────┐
     // │ protected Property                                                              │
