@@ -471,6 +471,14 @@ The original profile files shall be backed up before being replaced.
 
 EnvManager allows you to manage tools for the environment. The tools can be added, removed, listed, and updated using a local package manager. It shall automatically detect and use the appropriate package manager for the operating system.
 
+Alternatively, `tools add` accepts `--install-command` and optional `--update-command`
+and `--remove-command` shell commands for a tool. These commands are stored with the
+tool and run using `/bin/sh -c` on Unix or `cmd.exe /D /C` on Windows. An absent
+update or remove command or a nonzero exit code causes the operation to fail; removal
+then leaves the tool tracked. Custom commands cannot be combined with a package
+manager or version option. Commands in shared configuration must be reviewed before
+execution and must not contain secrets.
+
 #### Supported Package Managers
 
 EnvManager supports the following package managers:

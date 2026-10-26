@@ -56,6 +56,13 @@ public sealed class ToolsUpdateCommand : Command
 
             foreach (ToolDefinition tool in toolsToUpdate)
             {
+                if (tool.InstallCommand is not null)
+                {
+                    await CustomToolCommand.RunAsync(tool.UpdateCommand, tool.Name, "update", cancellationToken).ConfigureAwait(false);
+                    ConsoleReporter.Success($"Updated tool '{tool.Name}'.");
+                    continue;
+                }
+
                 IPackageManager packageManager = tool.PackageManager is null
                     ? await PackageManagerFactory.DetectAsync(cancellationToken).ConfigureAwait(false)
                     : PackageManagerFactory.GetByName(tool.PackageManager);

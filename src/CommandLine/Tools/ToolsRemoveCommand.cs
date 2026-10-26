@@ -41,12 +41,19 @@ public sealed class ToolsRemoveCommand : Command
             ToolDefinition tool = configuration.Tools.FirstOrDefault(candidate => candidate.Name == toolName)
                 ?? throw new ConfigurationException($"Tool '{toolName}' is not tracked in the current environment.");
 
-            IPackageManager packageManager = tool.PackageManager is null
-                ? await PackageManagerFactory.DetectAsync(cancellationToken).ConfigureAwait(false)
-                : PackageManagerFactory.GetByName(tool.PackageManager);
+            if (tool.InstallCommand is not null)
+            {
+                await CustomToolCommand.RunAsync(tool.RemoveCommand, toolName, "remove", cancellationToken).ConfigureAwait(false);
+            }
+            else
+            {
+                IPackageManager packageManager = tool.PackageManager is null
+                    ? await PackageManagerFactory.DetectAsync(cancellationToken).ConfigureAwait(false)
+                    : PackageManagerFactory.GetByName(tool.PackageManager);
 
-            await ConsoleReporter.RunPackageOperationAsync(packageManager, $"Removing '{toolName}' using '{packageManager.Name}'...",
-                () => packageManager.RemoveAsync(toolName, cancellationToken)).ConfigureAwait(false);
+                await ConsoleReporter.RunPackageOperationAsync(packageManager, $"Removing '{toolName}' using '{packageManager.Name}'...",
+                    () => packageManager.RemoveAsync(toolName, cancellationToken)).ConfigureAwait(false);
+            }
 
             configuration.Tools.Remove(tool);
 

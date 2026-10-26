@@ -43,7 +43,8 @@ public sealed class ToolsListCommand : Command
 
             foreach (ToolDefinition tool in configuration.Tools)
             {
-                table.AddRow(tool.Name, tool.PackageManager ?? "(auto)", tool.Version ?? "(latest)");
+                table.AddRow(tool.Name, tool.InstallCommand is not null ? "(custom command)" : tool.PackageManager ?? "(auto)",
+                    tool.InstallCommand is not null ? "-" : tool.Version ?? "(latest)");
             }
 
             AnsiConsole.Write(table);

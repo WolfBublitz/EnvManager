@@ -159,6 +159,7 @@ EnvManager variable list                                    # List all variables
 
 ```bash
 EnvManager tools add <tool_name> [--package-manager <name>] [--version <version>]
+EnvManager tools add <tool_name> --install-command <command> [--update-command <command>] [--remove-command <command>]
 EnvManager tools remove <tool_name>
 EnvManager tools update [tool_name]   # Updates one tool, or every tracked tool when omitted
 EnvManager tools list
@@ -171,6 +172,24 @@ On Linux, `apt`, `dnf`, `yum`, and `zypper` operations run through `sudo` when
 EnvManager is not already root. `sudo` may prompt in the terminal for the
 password required by its policy; EnvManager does not collect or store it.
 Unattended use requires an appropriate non-interactive sudo configuration.
+
+For tools without a supported package manager, provide shell commands instead:
+
+```bash
+EnvManager tools add mytool --install-command 'sh ./install-mytool.sh' \
+  --update-command 'sh ./update-mytool.sh' --remove-command 'sh ./remove-mytool.sh'
+```
+
+Commands run through `/bin/sh -c` on Linux and macOS or `cmd.exe /D /C` on Windows,
+with the current working directory, environment, and terminal. The install command
+cannot be combined with `--package-manager` or `--version`; include any version in
+the command itself. Update and remove commands are optional, but the corresponding
+operation fails without one and leaves the tool tracked. They can be added or changed
+in `.EnvManager/config.yml`. A nonzero command exit code fails the operation.
+
+These commands are stored in the Git-backed environment configuration and update or
+remove executes them with your user privileges. Review commands from shared or cloned
+configurations before running them, and do not put secrets in them.
 
 ### Shells
 

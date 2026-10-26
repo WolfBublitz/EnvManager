@@ -24,4 +24,13 @@ public sealed class ToolDefinition
 
     /// <summary>Gets or sets the requested version of the tool, or <see langword="null"/> for the latest version.</summary>
     public string? Version { get; set; }
+
+    /// <summary>Gets or sets the shell command used to install a custom tool.</summary>
+    public string? InstallCommand { get; set; }
+
+    /// <summary>Gets or sets the shell command used to update a custom tool.</summary>
+    public string? UpdateCommand { get; set; }
+
+    /// <summary>Gets or sets the shell command used to uninstall a custom tool.</summary>
+    public string? RemoveCommand { get; set; }
 }
