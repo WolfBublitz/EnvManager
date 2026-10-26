@@ -359,6 +359,13 @@ Syntax:
   EnvManager pull
 ```
 
+Pull shall fetch the current environment's branch from `origin` and replace the local
+branch, index, and work tree with that remote version, even when their histories have
+diverged. Local-only commits and staged or unstaged changes to tracked files are
+discarded. Untracked files or directories obstructing remote tracked paths can also be
+overwritten or removed; unrelated untracked files are left alone. Pull does not back up
+these changes. If the fetch fails, the local branch, index, and work tree remain unchanged.
+
 #### Switch Command
 
 ```bash

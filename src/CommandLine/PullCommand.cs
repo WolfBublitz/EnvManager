@@ -12,7 +12,7 @@ namespace EnvManager.CommandLine;
 
 /// <summary>
 /// The <c>pull</c> command pulls the latest committed changes for the current
-/// environment from the remote repository.
+/// environment from the remote repository, replacing local changes.
 /// </summary>
 public sealed class PullCommand : Command
 {
@@ -22,7 +22,7 @@ public sealed class PullCommand : Command
 
     /// <summary>Initializes a new instance of the <see cref="PullCommand"/> class.</summary>
     public PullCommand()
-        : base("pull", "Pulls the latest environment configuration from the remote repository.")
+        : base("pull", "Discards local changes and replaces the current environment with the remote version.")
     {
         this.SetAction((_, cancellationToken) => CommandExecutor.RunAsync(async () =>
         {

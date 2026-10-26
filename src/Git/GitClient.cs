@@ -325,7 +325,10 @@ public sealed class GitClient
         await this.RunOrThrowAsync(["push", "--set-upstream", "origin", branch], cancellationToken).ConfigureAwait(false);
     }
 
-    /// <summary>Pulls the latest changes for the current branch from the <c>origin</c> remote.</summary>
+    /// <summary>
+    /// Replaces the current branch and work tree with the corresponding branch from
+    /// <c>origin</c>, discarding local changes and divergent commits.
+    /// </summary>
     /// <param name="cancellationToken">A token to cancel the operation.</param>
     public async Task PullAsync(CancellationToken cancellationToken = default)
     {
@@ -336,10 +339,10 @@ public sealed class GitClient
 
         string branch = await this.GetCurrentBranchAsync(cancellationToken).ConfigureAwait(false);
 
-        // The bare repository mirrors 'refs/heads/*' directly (rather than tracking
-        // remote branches under 'refs/remotes/origin/*'), so the remote and branch are
-        // named explicitly instead of relying on upstream tracking configuration.
-        await this.RunOrThrowAsync(["pull", "origin", branch], cancellationToken).ConfigureAwait(false);
+        // Fetch only into FETCH_HEAD: a bare clone may map remote branches directly
+        // onto local branches, which must not be updated before the fetch succeeds.
+        await this.RunOrThrowAsync(["fetch", "--no-tags", "--refmap=", "origin", $"refs/heads/{branch}"], cancellationToken).ConfigureAwait(false);
+        await this.RunOrThrowAsync(["reset", "--hard", "FETCH_HEAD"], cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>

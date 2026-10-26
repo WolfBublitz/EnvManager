@@ -185,6 +185,12 @@ EnvManager pull    # Pull the latest committed changes for the current environme
 EnvManager switch <environment_name> [--create]   # Switch to a different environment
 ```
 
+**Pull is destructive:** it replaces the current environment with the `origin` branch,
+discarding local-only commits and staged or unstaged changes to tracked files. Untracked
+files or directories that obstruct remote tracked paths can also be overwritten or
+removed. Unrelated untracked files are left alone, and pull creates no backup. A failed
+fetch leaves the local branch, index, and work tree unchanged.
+
 Use `--create` with `switch` to create a new, empty environment when it doesn't exist yet
 locally or on the remote.
 

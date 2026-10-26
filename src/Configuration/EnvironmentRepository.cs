@@ -234,7 +234,7 @@ public sealed class EnvironmentRepository
     public Task PushAsync(CancellationToken cancellationToken = default)
         => this.Git.PushAsync(cancellationToken);
 
-    /// <summary>Pulls the latest committed changes for the current environment from the remote repository.</summary>
+    /// <summary>Replaces the current environment with the remote branch, discarding local changes and divergent commits.</summary>
     /// <param name="cancellationToken">A token to cancel the operation.</param>
     public Task PullAsync(CancellationToken cancellationToken = default)
         => this.Git.PullAsync(cancellationToken);
