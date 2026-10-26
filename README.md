@@ -79,6 +79,23 @@ also publish a native AOT, single-file binary for your platform:
 dotnet publish src/EnvManager.csproj -c Release -r <RID> /p:PublishAot=true
 ```
 
+### Development container
+
+With Docker and the VS Code Dev Containers extension installed, open this repository
+in VS Code and select **Dev Containers: Reopen in Container**. The container includes
+the .NET 11 SDK and Linux native AOT build dependencies, and restores both projects
+when it is created.
+
+From the container terminal, build and run the tests with:
+
+```bash
+dotnet build src/EnvManager.csproj
+dotnet run --project tests/EnvManager.Tests/EnvManager.Tests.csproj
+```
+
+To publish a native binary, use the publish command above with the container's Linux
+runtime identifier (for example, `linux-x64` or `linux-arm64`).
+
 ## Getting Started
 
 EnvManager stores its configuration history in a **bare** git repository at

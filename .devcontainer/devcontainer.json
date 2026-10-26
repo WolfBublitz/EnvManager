@@ -1,0 +1,15 @@
+{
+  "name": "EnvManager",
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
+  "remoteUser": "vscode",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-dotnettools.csharp"
+      ]
+    }
+  },
+  "postCreateCommand": "dotnet restore tests/EnvManager.Tests/EnvManager.Tests.csproj"
+}
