@@ -316,9 +316,10 @@ Arguments:
   file_name    The name of the file to add.
 ```
 
-Adding a file stages it and commits it locally; it does not push to the remote.
-Run `EnvManager push` separately to publish the commit. A remote is not required
-to add a file.
+Adding a file stages it without committing or pushing. Run `EnvManager push` to
+commit and publish staged changes. A remote is not required to add a file.
+Other commands that create commits, including configuration updates and `shells add`,
+can include already staged file changes.
 
 ##### Remove Subcommand
 
@@ -332,6 +333,9 @@ Syntax:
 Arguments:
   file_name    The name of the file to remove.
 ```
+
+Removing a file stages it for removal without committing or deleting the local file.
+Run `EnvManager push` to commit and publish the removal.
 
 ##### List Subcommand
 

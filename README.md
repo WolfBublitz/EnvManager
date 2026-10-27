@@ -222,8 +222,11 @@ EnvManager files list                 # List all files tracked for the current e
 `file_name` is resolved relative to your home directory (or as an absolute path inside
 it); paths outside the home directory are rejected.
 
-`files add` commits the file locally without pushing or requiring a remote. Run
-`EnvManager push` separately when you are ready to publish the commit.
+`files add` and `files remove` stage their changes without committing or requiring a
+remote; removal leaves the local file in place. Run `EnvManager push` when you are
+ready to commit and publish the staged changes.
+Other commands that commit changes, including configuration updates and `shells add`,
+can also include already staged files in their commits.
 
 ### Synchronizing environments
 

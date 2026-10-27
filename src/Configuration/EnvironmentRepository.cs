@@ -176,8 +176,8 @@ public sealed class EnvironmentRepository
         => this.Git.ListEnvironmentsAsync(cancellationToken);
 
     /// <summary>
-    /// Adds an existing file from the home directory to the repository for the
-    /// currently checked-out environment.
+    /// Stages an existing file from the home directory for the currently checked-out
+    /// environment without committing it.
     /// </summary>
     /// <param name="fileName">The file to add, relative to (or an absolute path inside) the home directory.</param>
     /// <param name="cancellationToken">A token to cancel the operation.</param>
@@ -192,12 +192,11 @@ public sealed class EnvironmentRepository
         }
 
         await this.Git.AddAsync(relativePath, cancellationToken).ConfigureAwait(false);
-        await this.Git.CommitAsync($"Add file '{relativePath}'.", cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
-    /// Stops tracking a file in the repository for the currently checked-out
-    /// environment, leaving the file itself in place in the home directory.
+    /// Stages removal of a tracked file for the currently checked-out environment,
+    /// leaving the file itself in place in the home directory.
     /// </summary>
     /// <param name="fileName">The file to remove, relative to (or an absolute path inside) the home directory.</param>
     /// <param name="cancellationToken">A token to cancel the operation.</param>
@@ -211,7 +210,6 @@ public sealed class EnvironmentRepository
         }
 
         await this.Git.RemoveAsync(relativePath, cancellationToken).ConfigureAwait(false);
-        await this.Git.CommitAsync($"Remove file '{relativePath}'.", cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>

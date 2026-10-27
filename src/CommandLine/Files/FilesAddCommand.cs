@@ -40,7 +40,7 @@ public sealed class FilesAddCommand : Command
 
             await repository.AddFileAsync(fileName, cancellationToken).ConfigureAwait(false);
 
-            ConsoleReporter.Success($"Added file '{fileName}' to the repository.");
+            ConsoleReporter.Success($"Staged file '{fileName}' for addition. Run 'EnvManager push' to commit and publish it.");
         }));
     }
 }

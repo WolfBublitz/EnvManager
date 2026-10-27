@@ -40,7 +40,7 @@ public sealed class FilesRemoveCommand : Command
 
             await repository.RemoveFileAsync(fileName, cancellationToken).ConfigureAwait(false);
 
-            ConsoleReporter.Success($"Removed file '{fileName}' from the repository.");
+            ConsoleReporter.Success($"Staged file '{fileName}' for removal. Run 'EnvManager push' to commit and publish it.");
         }));
     }
 }
