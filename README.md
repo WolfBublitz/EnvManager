@@ -222,13 +222,22 @@ EnvManager files list                 # List all files tracked for the current e
 `file_name` is resolved relative to your home directory (or as an absolute path inside
 it); paths outside the home directory are rejected.
 
+`files add` commits the file locally without pushing or requiring a remote. Run
+`EnvManager push` separately when you are ready to publish the commit.
+
 ### Synchronizing environments
 
 ```bash
-EnvManager push    # Push the current environment's committed changes to the remote
-EnvManager pull    # Pull the latest committed changes for the current environment
+EnvManager push    # List pending changes, confirm, commit (auto-generated message) and push (-y skips the prompt)
+EnvManager pull    # Preview and confirm the destructive pull (-y skips the prompt)
 EnvManager switch <environment_name> [--create]   # Switch to a different environment
 ```
+
+Pull fetches and previews incoming changes, local changes and local-only commits before
+asking for confirmation. It replaces the local branch and tracked work tree without a
+backup; files or directories obstructing incoming paths may also be removed. Use
+`EnvManager pull --yes` to skip confirmation.
+
 
 **Pull is destructive:** it replaces the current environment with the `origin` branch,
 discarding local-only commits and staged or unstaged changes to tracked files. Untracked

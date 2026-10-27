@@ -208,6 +208,208 @@ public sealed class GitPullTests
         }
     }
 
+    [Test]
+    public async Task PullCommandPreviewsChangesAndDecliningPreservesLocalState()
+    {
+        DirectoryInfo root = CreateRoot();
+        try
+        {
+            (DirectoryInfo source, GitClient client) = await CreateRepositoriesAsync(root);
+            string home = client.WorkingDirectory.FullName;
+            File.WriteAllText(Path.Combine(home, "settings"), "local commit");
+            await RunClientAsync(client, "add", "settings");
+            await RunClientAsync(client, "commit", "-m", "local change");
+            string localCommit = await RunClientAsync(client, "rev-parse", "HEAD");
+            File.WriteAllText(Path.Combine(home, "settings"), "staged");
+            await RunClientAsync(client, "add", "settings");
+            File.WriteAllText(Path.Combine(home, "settings"), "unstaged");
+            File.WriteAllText(Path.Combine(home, "incoming"), "untracked obstruction");
+            Directory.CreateDirectory(Path.Combine(home, "incoming-directory"));
+            File.WriteAllText(Path.Combine(home, "incoming-directory", "untracked"), "obstruction");
+            File.WriteAllText(Path.Combine(source.FullName, "settings"), "remote");
+            File.WriteAllText(Path.Combine(source.FullName, "incoming"), "remote incoming");
+            File.WriteAllText(Path.Combine(source.FullName, "incoming-directory"), "remote file");
+            File.Delete(Path.Combine(source.FullName, "obsolete"));
+            await RunGitAsync(source, "add", "-A");
+            await RunGitAsync(source, "commit", "-m", "remote changes");
+            await RunGitAsync(source, "push", "origin", "main");
+
+            (int exitCode, string output) = await RunPullCommandAsync(home, "n\n");
+
+            await Assert.That(exitCode).IsEqualTo(0);
+            await Assert.That(output).Contains("M\tsettings");
+            await Assert.That(output).Contains("A\tincoming");
+            await Assert.That(output).Contains("incoming-directory");
+            await Assert.That(output).Contains("D\tobsolete");
+            await Assert.That(output).Contains("MM settings");
+            await Assert.That(output).Contains("local change");
+            await Assert.That(output).Contains("overwritten or removed");
+            await Assert.That(output).Contains("cancelled");
+            await Assert.That(await RunClientAsync(client, "rev-parse", "HEAD")).IsEqualTo(localCommit);
+            await Assert.That(await RunClientAsync(client, "show", ":settings")).IsEqualTo("staged");
+            await Assert.That(File.ReadAllText(Path.Combine(home, "settings"))).IsEqualTo("unstaged");
+            await Assert.That(File.ReadAllText(Path.Combine(home, "incoming"))).IsEqualTo("untracked obstruction");
+            await Assert.That(File.ReadAllText(Path.Combine(home, "incoming-directory", "untracked"))).IsEqualTo("obstruction");
+        }
+        finally
+        {
+            Directory.Delete(root.FullName, recursive: true);
+        }
+    }
+
+    [Test]
+    public async Task PullCommandAppliesConfirmedChanges()
+    {
+        DirectoryInfo root = CreateRoot();
+        try
+        {
+            (DirectoryInfo source, GitClient client) = await CreateRepositoriesAsync(root);
+            string settings = Path.Combine(client.WorkingDirectory.FullName, "settings");
+            File.WriteAllText(settings, "local");
+            File.WriteAllText(Path.Combine(source.FullName, "settings"), "remote");
+            await RunGitAsync(source, "add", "settings");
+            await RunGitAsync(source, "commit", "-m", "remote change");
+            await RunGitAsync(source, "push", "origin", "main");
+
+            (int exitCode, string output) = await RunPullCommandAsync(client.WorkingDirectory.FullName, "y\n");
+
+            await Assert.That(exitCode).IsEqualTo(0);
+            await Assert.That(output).Contains("settings");
+            await Assert.That(output).Contains("Apply this pull?");
+            await Assert.That(File.ReadAllText(settings)).IsEqualTo("remote");
+            await Assert.That(await RunClientAsync(client, "rev-parse", "HEAD")).IsEqualTo(await RunGitAsync(source, "rev-parse", "HEAD"));
+        }
+        finally
+        {
+            Directory.Delete(root.FullName, recursive: true);
+        }
+    }
+
+    [Test]
+    public async Task PullCommandAsksEvenWhenThereAreNoChanges()
+    {
+        DirectoryInfo root = CreateRoot();
+        try
+        {
+            (_, GitClient client) = await CreateRepositoriesAsync(root);
+            string localCommit = await RunClientAsync(client, "rev-parse", "HEAD");
+
+            (int exitCode, string output) = await RunPullCommandAsync(client.WorkingDirectory.FullName, "n\n");
+
+            await Assert.That(exitCode).IsEqualTo(0);
+            await Assert.That(output).Contains("None.");
+            await Assert.That(output).Contains("Apply this pull?");
+            await Assert.That(output).Contains("cancelled");
+            await Assert.That(await RunClientAsync(client, "rev-parse", "HEAD")).IsEqualTo(localCommit);
+        }
+        finally
+        {
+            Directory.Delete(root.FullName, recursive: true);
+        }
+    }
+
+    [Test]
+    public async Task PullCommandDefaultsToNoWhenNoInputIsProvided()
+    {
+        DirectoryInfo root = CreateRoot();
+        try
+        {
+            (_, GitClient client) = await CreateRepositoriesAsync(root);
+            string settings = Path.Combine(client.WorkingDirectory.FullName, "settings");
+            File.WriteAllText(settings, "local");
+
+            (int exitCode, string output) = await RunPullCommandAsync(client.WorkingDirectory.FullName, string.Empty);
+
+            await Assert.That(exitCode).IsEqualTo(0);
+            await Assert.That(output).Contains("cancelled");
+            await Assert.That(File.ReadAllText(settings)).IsEqualTo("local");
+        }
+        finally
+        {
+            Directory.Delete(root.FullName, recursive: true);
+        }
+    }
+
+    [Test]
+    public async Task PullCommandYesOptionAppliesWithoutInput()
+    {
+        DirectoryInfo root = CreateRoot();
+        try
+        {
+            (_, GitClient client) = await CreateRepositoriesAsync(root);
+            string settings = Path.Combine(client.WorkingDirectory.FullName, "settings");
+            File.WriteAllText(settings, "local");
+
+            (int exitCode, string output) = await RunPullCommandAsync(client.WorkingDirectory.FullName, string.Empty, "--yes");
+
+            await Assert.That(exitCode).IsEqualTo(0);
+            await Assert.That(output).Contains("settings");
+            await Assert.That(output.Contains("Apply this pull?")).IsFalse();
+            await Assert.That(File.ReadAllText(settings)).IsEqualTo("initial");
+        }
+        finally
+        {
+            Directory.Delete(root.FullName, recursive: true);
+        }
+    }
+
+    [Test]
+    public async Task PreviewAppliesFetchedCommitEvenIfRemoteAdvances()
+    {
+        DirectoryInfo root = CreateRoot();
+        try
+        {
+            (DirectoryInfo source, GitClient client) = await CreateRepositoriesAsync(root);
+            (string target, _, _, _, _) = await client.PreviewPullAsync();
+            File.WriteAllText(Path.Combine(source.FullName, "settings"), "new remote");
+            await RunGitAsync(source, "add", "settings");
+            await RunGitAsync(source, "commit", "-m", "advance remote");
+            await RunGitAsync(source, "push", "origin", "main");
+
+            await client.ApplyPullAsync(target);
+
+            await Assert.That(await RunClientAsync(client, "rev-parse", "HEAD")).IsEqualTo(target);
+            await Assert.That(File.ReadAllText(Path.Combine(client.WorkingDirectory.FullName, "settings"))).IsEqualTo("initial");
+        }
+        finally
+        {
+            Directory.Delete(root.FullName, recursive: true);
+        }
+    }
+
+    private static async Task<(int ExitCode, string Output)> RunPullCommandAsync(string home, string input, params string[] arguments)
+    {
+        ProcessStartInfo startInfo = new("dotnet")
+        {
+            WorkingDirectory = home,
+            RedirectStandardInput = true,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+        };
+        startInfo.Environment["ENVMANAGER_HOME"] = home;
+        startInfo.ArgumentList.Add(typeof(Program).Assembly.Location);
+        startInfo.ArgumentList.Add("pull");
+        foreach (string argument in arguments)
+        {
+            startInfo.ArgumentList.Add(argument);
+        }
+
+        using Process process = Process.Start(startInfo) ?? throw new InvalidOperationException("Could not start EnvManager.");
+        Task<string> output = process.StandardOutput.ReadToEndAsync();
+        Task<string> error = process.StandardError.ReadToEndAsync();
+        await process.StandardInput.WriteAsync(input);
+        process.StandardInput.Close();
+        await process.WaitForExitAsync();
+        string result = await output + await error;
+        if (process.ExitCode != 0)
+        {
+            throw new InvalidOperationException($"Pull exited with {process.ExitCode}: {result}");
+        }
+
+        return (process.ExitCode, result);
+    }
+
     private static DirectoryInfo CreateRoot()
     {
         DirectoryInfo root = new(Path.Combine(Path.GetTempPath(), $"EnvManager-PullTests-{Guid.NewGuid():N}"));

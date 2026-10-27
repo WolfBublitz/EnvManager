@@ -234,6 +234,53 @@ public sealed class EnvironmentRepository
     public Task PushAsync(CancellationToken cancellationToken = default)
         => this.Git.PushAsync(cancellationToken);
 
+    /// <summary>Lists pending changes to tracked files as <c>(status, path)</c> pairs.</summary>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    public Task<IReadOnlyList<(string Status, string Path)>> GetPendingChangesAsync(CancellationToken cancellationToken = default)
+        => this.Git.ListPendingChangesAsync(cancellationToken);
+
+    /// <summary>
+    /// Commits all changes to tracked files with an auto-generated message (when there are
+    /// any) and pushes the current environment to the remote repository.
+    /// </summary>
+    /// <param name="pendingChanges">The pending changes, used to generate the commit message.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    public async Task PushAsync(IReadOnlyList<(string Status, string Path)> pendingChanges, CancellationToken cancellationToken = default)
+    {
+        if (pendingChanges.Count > 0)
+        {
+            await this.Git.StageTrackedChangesAsync(cancellationToken).ConfigureAwait(false);
+            await this.Git.CommitAsync(BuildCommitMessage(pendingChanges), cancellationToken).ConfigureAwait(false);
+        }
+
+        await this.Git.PushAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    private static string BuildCommitMessage(IReadOnlyList<(string Status, string Path)> changes)
+    {
+        const int MaxListedFiles = 3;
+
+        if (changes.Count == 1)
+        {
+            (string status, string path) = changes[0];
+            string verb = status switch
+            {
+                "A" => "Add",
+                "D" => "Remove",
+                _ => "Update",
+            };
+
+            return $"{verb} file '{path}'.";
+        }
+
+        if (changes.Count <= MaxListedFiles)
+        {
+            return $"Update files {string.Join(", ", changes.Select(change => $"'{change.Path}'"))}.";
+        }
+
+        return $"Update {changes.Count} files.";
+    }
+
     /// <summary>Replaces the current environment with the remote branch, discarding local changes and divergent commits.</summary>
     /// <param name="cancellationToken">A token to cancel the operation.</param>
     public Task PullAsync(CancellationToken cancellationToken = default)

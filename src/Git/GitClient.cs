@@ -315,6 +315,39 @@ public sealed class GitClient
         await this.RunOrThrowAsync(["commit", "-m", message], cancellationToken).ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// Stages modifications and deletions of all tracked files. Untracked files are left
+    /// alone, since the work tree is the user's home directory.
+    /// </summary>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    public Task StageTrackedChangesAsync(CancellationToken cancellationToken = default)
+        => this.RunOrThrowAsync(["add", "--update"], cancellationToken);
+
+    /// <summary>
+    /// Lists pending changes to tracked files as <c>(status, path)</c> pairs, where status is
+    /// <c>A</c>, <c>M</c> or <c>D</c>. Untracked files are not included.
+    /// </summary>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    public async Task<IReadOnlyList<(string Status, string Path)>> ListPendingChangesAsync(CancellationToken cancellationToken = default)
+    {
+        GitCommandResult result = await this.RunOrThrowAsync(["status", "--porcelain", "--untracked-files=no", "--no-renames"], cancellationToken).ConfigureAwait(false);
+
+        List<(string Status, string Path)> changes = [];
+
+        foreach (string line in result.StandardOutput.Split('\n', StringSplitOptions.RemoveEmptyEntries))
+        {
+            if (line.Length < 4)
+            {
+                continue;
+            }
+
+            char status = line[0] != ' ' ? line[0] : line[1];
+            changes.Add((status.ToString(), line[3..].Trim().Trim('"')));
+        }
+
+        return changes;
+    }
+
     /// <summary>Pushes the current branch to the <c>origin</c> remote, setting up tracking if needed.</summary>
     /// <param name="cancellationToken">A token to cancel the operation.</param>
     public async Task PushAsync(CancellationToken cancellationToken = default)
@@ -336,6 +369,55 @@ public sealed class GitClient
     /// <param name="cancellationToken">A token to cancel the operation.</param>
     public async Task PullAsync(CancellationToken cancellationToken = default)
     {
+        string target = await this.FetchPullTargetAsync(cancellationToken).ConfigureAwait(false);
+        await this.ApplyPullAsync(target, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>Fetches and previews the changes and local data affected by a pull.</summary>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>The fetched commit and descriptions of incoming and local changes.</returns>
+    public async Task<(string Target, string Incoming, string LocalChanges, string LocalCommits, IReadOnlyList<string> Obstructions)> PreviewPullAsync(CancellationToken cancellationToken = default)
+    {
+        string target = await this.FetchPullTargetAsync(cancellationToken).ConfigureAwait(false);
+        GitCommandResult incoming = await this.RunOrThrowAsync(["diff", "--no-ext-diff", "--no-renames", "--name-status", "HEAD", target, "--"], cancellationToken).ConfigureAwait(false);
+        GitCommandResult localChanges = await this.RunOrThrowAsync(["status", "--porcelain", "--untracked-files=no", "--no-renames"], cancellationToken).ConfigureAwait(false);
+        GitCommandResult localCommits = await this.RunOrThrowAsync(["log", "--oneline", $"{target}..HEAD", "--"], cancellationToken).ConfigureAwait(false);
+        GitCommandResult tracked = await this.RunOrThrowAsync(["ls-files", "-z"], cancellationToken).ConfigureAwait(false);
+        HashSet<string> trackedPaths = new(tracked.StandardOutput.Split('\0', StringSplitOptions.RemoveEmptyEntries), StringComparer.Ordinal);
+        IReadOnlyList<string> targetPaths = await this.ListTrackedFilesAsync(target, cancellationToken).ConfigureAwait(false);
+        HashSet<string> obstructions = new(StringComparer.Ordinal);
+
+        foreach (string path in targetPaths)
+        {
+            string fullPath = Path.Combine(this.WorkingDirectory.FullName, path);
+            if (Directory.Exists(fullPath) || (File.Exists(fullPath) && !trackedPaths.Contains(path)))
+            {
+                obstructions.Add(path);
+            }
+
+            string? parent = Path.GetDirectoryName(path);
+            while (!string.IsNullOrEmpty(parent))
+            {
+                if (File.Exists(Path.Combine(this.WorkingDirectory.FullName, parent)) && !trackedPaths.Contains(parent))
+                {
+                    obstructions.Add(parent);
+                }
+
+                parent = Path.GetDirectoryName(parent);
+            }
+        }
+
+        return (target, incoming.StandardOutput, localChanges.StandardOutput, localCommits.StandardOutput, obstructions.OrderBy(path => path, StringComparer.Ordinal).ToList());
+    }
+
+    /// <summary>Applies the exact commit previously fetched for a pull.</summary>
+    /// <param name="target">The fetched commit identifier.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    public Task ApplyPullAsync(string target, CancellationToken cancellationToken = default)
+        => this.RunOrThrowAsync(["reset", "--hard", target], cancellationToken);
+
+    private async Task<string> FetchPullTargetAsync(CancellationToken cancellationToken)
+    {
         if (!await this.HasRemoteAsync(cancellationToken).ConfigureAwait(false))
         {
             throw new GitCommandException("pull", 1, "No 'origin' remote is configured. Clone from a remote repository before pulling.");
@@ -346,7 +428,8 @@ public sealed class GitClient
         // Fetch only into FETCH_HEAD: a bare clone may map remote branches directly
         // onto local branches, which must not be updated before the fetch succeeds.
         await this.RunOrThrowAsync(["fetch", "--no-tags", "--refmap=", "origin", $"refs/heads/{branch}"], cancellationToken).ConfigureAwait(false);
-        await this.RunOrThrowAsync(["reset", "--hard", "FETCH_HEAD"], cancellationToken).ConfigureAwait(false);
+        GitCommandResult result = await this.RunOrThrowAsync(["rev-parse", "--verify", "FETCH_HEAD^{commit}"], cancellationToken).ConfigureAwait(false);
+        return result.StandardOutput.Trim();
     }
 
     /// <summary>

@@ -316,6 +316,10 @@ Arguments:
   file_name    The name of the file to add.
 ```
 
+Adding a file stages it and commits it locally; it does not push to the remote.
+Run `EnvManager push` separately to publish the commit. A remote is not required
+to add a file.
+
 ##### Remove Subcommand
 
 ```bash
@@ -343,10 +347,14 @@ Syntax:
 
 ```bash
 Description:
-  Pushes the current environment configuration to the remote repository.
+  Lists all pending changes to tracked files, asks for confirmation, commits them with
+  an auto-generated commit message and pushes the current environment configuration to the remote repository.
 
 Syntax:
-  EnvManager push
+  EnvManager push [--yes]
+
+Options:
+  -y, --yes    Commit and push without asking for confirmation.
 ```
 
 #### Pull Command
@@ -356,8 +364,17 @@ Description:
   Pulls the latest environment configuration from the remote repository.
 
 Syntax:
-  EnvManager pull
+  EnvManager pull [--yes]
+
+Options:
+  -y, --yes    Apply the pull without asking for confirmation.
 ```
+
+Before applying, pull shall display incoming file changes, uncommitted tracked changes,
+local-only commits, and existing files or directories that may obstruct incoming paths.
+It shall ask for confirmation, defaulting to no, unless `--yes` is supplied. Declining
+leaves the local branch, index, and work tree unchanged. The confirmed pull applies the
+exact fetched commit shown in the preview.
 
 Pull shall fetch the current environment's branch from `origin` and replace the local
 branch, index, and work tree with that remote version, even when their histories have

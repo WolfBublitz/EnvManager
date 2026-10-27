@@ -84,7 +84,7 @@ public sealed class ShellsAddCommandTests
             string remote = Path.Combine(root.FullName, "remote.git");
             await RunSuccessAsync(root.FullName, "git", "init", "--bare", "--initial-branch=main", remote);
             await RunSuccessAsync(home, "git", $"--git-dir={gitDirectory}", "remote", "add", "origin", remote);
-            await RunSuccessAsync(home, "dotnet", typeof(Program).Assembly.Location, "push");
+            await RunSuccessAsync(home, "dotnet", typeof(Program).Assembly.Location, "push", "--yes");
             await Assert.That(await RunSuccessAsync(root.FullName, "git", $"--git-dir={remote}", "show", "main:.bashrc")).Contains("$HOME/.EnvManager/bash/");
         }
         finally
