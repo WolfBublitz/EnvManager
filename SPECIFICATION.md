@@ -456,8 +456,8 @@ The original profile files shall be backed up before being replaced.
 
 For fish the existing profile files (e.g., `~/.config/fish/config.fish`) shall be replaced by:
 
-```bash
-export PATH="$HOME/.local/bin:$PATH"
+```fish
+set -gx PATH "$HOME/.local/bin" $PATH
 
 if test -d $HOME/.EnvManager/fish
     for file in $HOME/.EnvManager/fish/*.fish
@@ -473,7 +473,7 @@ The original profile files shall be backed up before being replaced.
 For PowerShell the existing profile files (e.g., `$PROFILE`) shall be replaced by:
 
 ```powershell
-$env:PATH="$HOME/.local/bin;$env:PATH"
+$env:PATH = "$HOME/.local/bin$([IO.Path]::PathSeparator)$env:PATH"
 
 $path = "$HOME/.EnvManager/powershell"
 
@@ -491,7 +491,7 @@ For CMD the existing profile files (e.g., `C:\Users\<User>\_cmdrc`) shall be rep
 ```cmd
 set PATH=%USERPROFILE%\.local\bin;%PATH%
 
-for %%f in "%USERPROFILE%\.EnvManager\cmd\*" do (
+for %%f in ("%USERPROFILE%\.EnvManager\cmd\*") do (
     if exist "%%f" call "%%f"
 )
 ```

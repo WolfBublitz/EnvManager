@@ -17,6 +17,7 @@ review changes to your setup like any other code.
   `environment.yaml` file, so changes are versioned and can be pushed/pulled between machines.
 - **Multiple environments**: switch between environments (branches) at any time.
 - **Shell integration**: configure bash, zsh, fish, PowerShell, and CMD profile loaders with automatic backups of existing profile files.
+- **Executable discovery**: managed shell profiles add `$HOME/.local/bin` to `PATH`.
 - Color-coded CLI output (green for success, red for errors, yellow for warnings, blue for info)
   using [Spectre.Console](https://spectreconsole.net/).
 

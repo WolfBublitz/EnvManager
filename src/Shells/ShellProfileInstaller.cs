@@ -20,10 +20,14 @@ internal sealed class ShellProfileInstaller
 {
     private const string LegacyBashProfile = "for file in \"$HOME/.EnvManager/bash/\"*.sh; do\n    [ -f \"$file\" ] && source \"$file\"\ndone\n";
     private const string BashProfile = "export PATH=\"$HOME/.local/bin:$PATH\"\n\n" + LegacyBashProfile;
-    private const string ZshProfile = "for file in \"$HOME/.EnvManager/zsh/\"*.sh; do\n    [ -f \"$file\" ] && source \"$file\"\ndone\n";
-    private const string FishProfile = "if test -d $HOME/.EnvManager/fish\n    for file in $HOME/.EnvManager/fish/*.fish\n        source \"$file\"\n    end\nend\n";
-    private const string PowerShellProfile = "$path = \"$HOME/.EnvManager/powershell\"\n\nif (Test-Path $path) {\n    Get-ChildItem $path -Filter *.ps1 -File | ForEach-Object { . $_.FullName }\n}\n";
-    private const string CommandPromptProfile = "for %%f in (\"%USERPROFILE%\\.EnvManager\\cmd\\*\") do (\n    if exist \"%%f\" call \"%%f\"\n)\n";
+    private const string LegacyZshProfile = "for file in \"$HOME/.EnvManager/zsh/\"*.sh; do\n    [ -f \"$file\" ] && source \"$file\"\ndone\n";
+    private const string ZshProfile = "export PATH=\"$HOME/.local/bin:$PATH\"\n\n" + LegacyZshProfile;
+    private const string LegacyFishProfile = "if test -d $HOME/.EnvManager/fish\n    for file in $HOME/.EnvManager/fish/*.fish\n        source \"$file\"\n    end\nend\n";
+    private const string FishProfile = "set -gx PATH \"$HOME/.local/bin\" $PATH\n\n" + LegacyFishProfile;
+    private const string LegacyPowerShellProfile = "$path = \"$HOME/.EnvManager/powershell\"\n\nif (Test-Path $path) {\n    Get-ChildItem $path -Filter *.ps1 -File | ForEach-Object { . $_.FullName }\n}\n";
+    private const string PowerShellProfile = "$env:PATH = \"$HOME/.local/bin$([IO.Path]::PathSeparator)$env:PATH\"\n\n" + LegacyPowerShellProfile;
+    private const string LegacyCommandPromptProfile = "for %%f in (\"%USERPROFILE%\\.EnvManager\\cmd\\*\") do (\n    if exist \"%%f\" call \"%%f\"\n)\n";
+    private const string CommandPromptProfile = "set PATH=%USERPROFILE%\\.local\\bin;%PATH%\n\n" + LegacyCommandPromptProfile;
 
     private readonly DirectoryInfo homeDirectory;
     private readonly bool isWindows;
@@ -139,8 +143,18 @@ internal sealed class ShellProfileInstaller
 
     private static bool IsInstalledProfile(string shellName, ShellProfile profile, string content)
     {
+        string legacyContent = shellName switch
+        {
+            "bash" => LegacyBashProfile,
+            "zsh" => LegacyZshProfile,
+            "fish" => LegacyFishProfile,
+            "powershell" => LegacyPowerShellProfile,
+            "cmd" => LegacyCommandPromptProfile,
+            _ => throw new ConfigurationException($"Unsupported shell '{shellName}'."),
+        };
+
         return string.Equals(content, profile.Content, StringComparison.Ordinal)
-            || (shellName == "bash" && string.Equals(content, LegacyBashProfile, StringComparison.Ordinal));
+            || string.Equals(content, legacyContent, StringComparison.Ordinal);
     }
 
     private ShellProfile GetProfile(string shellName)
