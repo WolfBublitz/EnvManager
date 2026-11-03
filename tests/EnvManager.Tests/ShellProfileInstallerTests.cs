@@ -35,12 +35,63 @@ public sealed class ShellProfileInstallerTests
             string installedContent = File.ReadAllText(bashrc);
             string backupDirectory = Path.Combine(home.FullName, ".EnvManager", "backups", "shell-profiles", "bash");
 
-            string expectedContent = "for file in \"$HOME/.EnvManager/bash/\"*.sh; do\n    [ -f \"$file\" ] && source \"$file\"\ndone\n";
+            string expectedContent = "export PATH=\"$HOME/.local/bin:$PATH\"\n\nfor file in \"$HOME/.EnvManager/bash/\"*.sh; do\n    [ -f \"$file\" ] && source \"$file\"\ndone\n";
 
             await Assert.That(installedContent).IsEqualTo(expectedContent);
             await Assert.That(File.ReadAllText(bashProfile)).IsEqualTo(expectedContent);
             await Assert.That(File.ReadAllText(Path.Combine(backupDirectory, ".bashrc"))).IsEqualTo("original bashrc");
             await Assert.That(File.ReadAllText(Path.Combine(backupDirectory, ".bash_profile"))).IsEqualTo("original bash profile");
+        }
+        finally
+        {
+            Directory.Delete(home.FullName, recursive: true);
+        }
+    }
+
+    [Test]
+    public async Task InstallBashUpgradesLegacyLoaderAndPreservesOriginalBackup()
+    {
+        DirectoryInfo home = CreateHome();
+
+        try
+        {
+            string bashrc = Path.Combine(home.FullName, ".bashrc");
+            string backup = Path.Combine(home.FullName, ".EnvManager", "backups", "shell-profiles", "bash", ".bashrc");
+            File.WriteAllText(bashrc, "original profile");
+            ShellProfileInstaller installer = new(home, isWindows: false);
+            installer.Install("bash");
+            File.WriteAllText(bashrc, "for file in \"$HOME/.EnvManager/bash/\"*.sh; do\n    [ -f \"$file\" ] && source \"$file\"\ndone\n");
+
+            installer.Install("bash");
+
+            await Assert.That(File.ReadAllText(bashrc)).StartsWith("export PATH=\"$HOME/.local/bin:$PATH\"\n\n");
+            await Assert.That(File.ReadAllText(backup)).IsEqualTo("original profile");
+            installer.Uninstall("bash");
+            await Assert.That(File.ReadAllText(bashrc)).IsEqualTo("original profile");
+        }
+        finally
+        {
+            Directory.Delete(home.FullName, recursive: true);
+        }
+    }
+
+    [Test]
+    public async Task UninstallBashRestoresOriginalFromLegacyLoader()
+    {
+        DirectoryInfo home = CreateHome();
+
+        try
+        {
+            string bashrc = Path.Combine(home.FullName, ".bashrc");
+            File.WriteAllText(bashrc, "original profile");
+            ShellProfileInstaller installer = new(home, isWindows: false);
+            installer.Install("bash");
+            File.WriteAllText(bashrc, "for file in \"$HOME/.EnvManager/bash/\"*.sh; do\n    [ -f \"$file\" ] && source \"$file\"\ndone\n");
+
+            installer.Uninstall("bash");
+
+            await Assert.That(File.ReadAllText(bashrc)).IsEqualTo("original profile");
+            await Assert.That(File.Exists(Path.Combine(home.FullName, ".bash_profile"))).IsFalse();
         }
         finally
         {

@@ -429,6 +429,8 @@ later `push`; pushing also publishes any earlier local commits.
 For bash the existing profile files (e.g., `~/.bashrc`, `~/.bash_profile`) shall be replaced by:
 
 ```bash
+export PATH="$HOME/.local/bin:$PATH"
+
 for file in "$HOME/.EnvManager/bash/"*.sh; do
     [ -f "$file" ] && source "$file"
 done
@@ -441,6 +443,8 @@ The original profile files shall be backed up before being replaced.
 For zsh the existing profile files (e.g., `~/.zshrc`, `~/.zprofile`) shall be replaced by:
 
 ```bash
+export PATH="$HOME/.local/bin:$PATH"
+
 for file in "$HOME/.EnvManager/zsh/"*.sh; do
     [ -f "$file" ] && source "$file"
 done
@@ -453,6 +457,8 @@ The original profile files shall be backed up before being replaced.
 For fish the existing profile files (e.g., `~/.config/fish/config.fish`) shall be replaced by:
 
 ```bash
+export PATH="$HOME/.local/bin:$PATH"
+
 if test -d $HOME/.EnvManager/fish
     for file in $HOME/.EnvManager/fish/*.fish
         source "$file"
@@ -467,6 +473,8 @@ The original profile files shall be backed up before being replaced.
 For PowerShell the existing profile files (e.g., `$PROFILE`) shall be replaced by:
 
 ```powershell
+$env:PATH="$HOME/.local/bin;$env:PATH"
+
 $path = "$HOME/.EnvManager/powershell"
 
 if (Test-Path $path) {
@@ -481,6 +489,8 @@ The original profile files shall be backed up before being replaced.
 For CMD the existing profile files (e.g., `C:\Users\<User>\_cmdrc`) shall be replaced by:
 
 ```cmd
+set PATH=%USERPROFILE%\.local\bin;%PATH%
+
 for %%f in "%USERPROFILE%\.EnvManager\cmd\*" do (
     if exist "%%f" call "%%f"
 )
@@ -562,8 +572,12 @@ The installation script supports the following options:
 curl -fsSL https://raw.githubusercontent.com/WolfBublitz/EnvManager/refs/heads/master/install.sh | bash
 ```
 
+The default `--install-dir` should be `$HOME/.local/bin`. It should be created if it does not exist.
+
 ### Windows
 
 ```pwsh
 ire "https://raw.githubusercontent.com/WolfBublitz/EnvManager/refs/heads/master/install.ps1" -UseBasicParsing | Invoke-Expression
 ```
+
+The default `--install-dir` should be `$HOME/.local/bin`. It should be created if it does not exist.

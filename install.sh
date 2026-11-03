@@ -94,8 +94,6 @@ else
   download_url="https://github.com/${REPOSITORY}/releases/download/${version}/${asset_name}"
 fi
 
-https://github.com/WolfBublitz/EnvManager/releases/download/latest/EnvManager-macos-arm64
-
 tmp_file="$(mktemp)"
 trap 'rm -f "$tmp_file"' EXIT
 

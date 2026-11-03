@@ -38,8 +38,8 @@ shell PATH if needed.
 irm "https://raw.githubusercontent.com/WolfBublitz/EnvManager/refs/heads/master/install.ps1" -UseBasicParsing | iex
 ```
 
-Downloads `EnvManager.exe`, installs it to `%LOCALAPPDATA%\Programs\EnvManager`
-(and adds that directory to your user `PATH`).
+Downloads `EnvManager.exe`, installs it to `$HOME\.local\bin` (creating the
+directory if needed), and adds that directory to your user `PATH`.
 
 ### Installer options
 

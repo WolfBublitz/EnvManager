@@ -10,8 +10,7 @@ in a per-user installation directory, and adds that directory to the user PATH.
 The release version to install. Defaults to the latest release.
 
 .PARAMETER InstallDir
-The directory where EnvManager.exe is installed. Defaults to
-%LOCALAPPDATA%\Programs\EnvManager.
+The directory where EnvManager.exe is installed. Defaults to $HOME\.local\bin.
 
 .EXAMPLE
 & ([scriptblock]::Create((Invoke-RestMethod
@@ -27,7 +26,7 @@ param(
     [Parameter()]
     [Alias("InstallDirectory")]
     [ValidateNotNullOrEmpty()]
-    [string]$InstallDir = (Join-Path $env:LOCALAPPDATA "Programs\EnvManager")
+    [string]$InstallDir = (Join-Path $HOME ".local/bin")
 )
 
 $ErrorActionPreference = "Stop"

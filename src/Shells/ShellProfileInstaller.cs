@@ -18,7 +18,8 @@ namespace EnvManager.Shells;
 /// </summary>
 internal sealed class ShellProfileInstaller
 {
-    private const string BashProfile = "for file in \"$HOME/.EnvManager/bash/\"*.sh; do\n    [ -f \"$file\" ] && source \"$file\"\ndone\n";
+    private const string LegacyBashProfile = "for file in \"$HOME/.EnvManager/bash/\"*.sh; do\n    [ -f \"$file\" ] && source \"$file\"\ndone\n";
+    private const string BashProfile = "export PATH=\"$HOME/.local/bin:$PATH\"\n\n" + LegacyBashProfile;
     private const string ZshProfile = "for file in \"$HOME/.EnvManager/zsh/\"*.sh; do\n    [ -f \"$file\" ] && source \"$file\"\ndone\n";
     private const string FishProfile = "if test -d $HOME/.EnvManager/fish\n    for file in $HOME/.EnvManager/fish/*.fish\n        source \"$file\"\n    end\nend\n";
     private const string PowerShellProfile = "$path = \"$HOME/.EnvManager/powershell\"\n\nif (Test-Path $path) {\n    Get-ChildItem $path -Filter *.ps1 -File | ForEach-Object { . $_.FullName }\n}\n";
@@ -72,7 +73,7 @@ internal sealed class ShellProfileInstaller
         {
             FileInfo profileFile = new(Path.Combine(this.homeDirectory.FullName, relativePath));
 
-            if (!profileFile.Exists || string.Equals(File.ReadAllText(profileFile.FullName), profile.Content, StringComparison.Ordinal))
+            if (!profileFile.Exists || IsInstalledProfile(normalizedName, profile, File.ReadAllText(profileFile.FullName)))
             {
                 continue;
             }
@@ -113,7 +114,7 @@ internal sealed class ShellProfileInstaller
             FileInfo profileFile = new(Path.Combine(this.homeDirectory.FullName, relativePath));
             FileInfo backupFile = this.GetBackupFile(normalizedName, relativePath);
 
-            if (profileFile.Exists && !string.Equals(File.ReadAllText(profileFile.FullName), profile.Content, StringComparison.Ordinal))
+            if (profileFile.Exists && !IsInstalledProfile(normalizedName, profile, File.ReadAllText(profileFile.FullName)))
             {
                 throw new ConfigurationException($"Shell profile '{profileFile.FullName}' has changed since EnvManager installed its loader. It was left untouched.");
             }
@@ -134,6 +135,12 @@ internal sealed class ShellProfileInstaller
                 profileFile.Delete();
             }
         }
+    }
+
+    private static bool IsInstalledProfile(string shellName, ShellProfile profile, string content)
+    {
+        return string.Equals(content, profile.Content, StringComparison.Ordinal)
+            || (shellName == "bash" && string.Equals(content, LegacyBashProfile, StringComparison.Ordinal));
     }
 
     private ShellProfile GetProfile(string shellName)
