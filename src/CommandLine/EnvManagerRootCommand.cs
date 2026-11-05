@@ -16,7 +16,7 @@ namespace EnvManager.CommandLine;
 /// <summary>
 /// The top-level EnvManager CLI command, wiring together every subcommand described in
 /// the project specification: <c>clone</c>, <c>init</c>, <c>variable</c>, <c>tools</c>,
-/// <c>files</c>, <c>shells</c>, <c>push</c>, <c>pull</c>, and <c>switch</c>.
+/// <c>files</c>, <c>shells</c>, <c>push</c>, <c>pull</c>, <c>switch</c>, and <c>update</c>.
 /// </summary>
 public sealed class EnvManagerRootCommand : RootCommand
 {
@@ -37,5 +37,6 @@ public sealed class EnvManagerRootCommand : RootCommand
         this.Add(new PushCommand());
         this.Add(new PullCommand());
         this.Add(new SwitchCommand());
+        this.Add(new UpdateCommand());
     }
 }

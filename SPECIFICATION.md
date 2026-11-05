@@ -145,6 +145,7 @@ envmanager:
   push:     # Pushes the current environment configuration to the remote repository.
   pull:     # Pulls the latest environment configuration from the remote repository.
   switch:   # Switches to a different environment configuration.
+  update:   # Checks for and installs a newer EnvManager release.
 ```
 
 ### Details
@@ -169,6 +170,7 @@ Commands:
   push        Push the current environment configuration to the remote repository.
   pull        Pull the latest environment configuration from the remote repository.
   switch      Switch to a different environment configuration.
+  update      Check for and install a newer EnvManager version.
 ```
 
 #### Clone Command
@@ -400,6 +402,31 @@ Syntax:
 Arguments:
   environment_name    The name of the environment configuration to switch to.
 ```
+
+#### Update Command
+
+```bash
+Description:
+  Checks for and installs a newer EnvManager release compatible with the current platform.
+
+Syntax:
+  EnvManager update [--version <version>]
+
+Options:
+  --version <version>    Install this available version without prompting.
+```
+
+The command shall compare GitHub release semantic versions with the running version
+and consider only releases that contain the current platform's executable. If there is
+one newer compatible release, it shall be selected automatically. If there are multiple,
+an interactive terminal shall display a selection list; noninteractive invocation shall
+require `--version`. The downloaded release asset shall be validated against its published
+SHA-256 digest before replacing the current executable. On Windows, where the running
+executable cannot be replaced in place, replacement shall be scheduled after the process
+exits. Unsupported platforms, unavailable versions, download failures, and digest
+mismatches shall be reported without replacing the existing executable.
+The command shall require direct invocation of the installed EnvManager executable and
+shall not attempt to replace a .NET host process.
 
 ## Features
 

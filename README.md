@@ -17,6 +17,7 @@ review changes to your setup like any other code.
 - **Git-backed configuration**: each environment branch stores its configuration in
   `$HOME/.EnvManager/config.yml`, so changes can be reviewed and synchronized between machines.
 - **Multiple environments**: switch between environments (branches) at any time.
+- **Self-update**: check for compatible GitHub releases and replace the installed executable.
 - **Shell integration**: configure bash, zsh, fish, PowerShell, and CMD profile loaders with automatic backups of existing profile files.
 - **Executable discovery**: managed shell profiles add `$HOME/.local/bin` to `PATH`.
 - Color-coded CLI output (green for success, red for errors, yellow for warnings, blue for info)
@@ -149,7 +150,17 @@ Commands:
   push                        Pushes the current environment configuration to the remote repository.
   pull                        Pulls the latest environment configuration from the remote repository.
   switch <environment_name>   Switches to a different environment configuration.
+  update [--version <version>] Checks for and installs a newer EnvManager version.
 ```
+
+`EnvManager update` checks for newer releases with an asset for the current platform.
+If several versions are available, an interactive terminal presents a selection list.
+For scripts or redirected input, specify one explicitly, for example
+`EnvManager update --version 1.2.0`. The downloaded executable is checked against the
+release's published SHA-256 digest before replacing the current binary. On Windows,
+replacement is scheduled for when the current process exits. Run the installed
+`EnvManager` executable directly; self-update cannot replace a `dotnet` host when
+invoked as `dotnet run` or `dotnet EnvManager.dll`.
 
 ### Variables
 

@@ -49,7 +49,7 @@ public static class Program
         });
     }
 
-    private static SemVersion ApplicationVersion
+    internal static SemVersion ApplicationVersion
     {
         get {
             AssemblyInformationalVersionAttribute? attribute = typeof(Program).Assembly.GetCustomAttributes<AssemblyInformationalVersionAttribute>().FirstOrDefault() as AssemblyInformationalVersionAttribute;
