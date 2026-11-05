@@ -5,6 +5,8 @@
 // └────────────────────────────────────────────────────────────────────────────────┘
 
 using System;
+using System.Collections;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Runtime.InteropServices;
 using System.Threading;
@@ -89,6 +91,7 @@ public abstract class PackageManagerBase : IPackageManager
         bool useSudo = this.RequiresElevation && OperatingSystem.IsLinux() && GetEffectiveUserId() != 0;
         string executable = useSudo ? "sudo" : this.Executable;
         string[] commandArguments = useSudo ? [this.Executable, .. arguments] : arguments;
+        string workingDirectory = Environment.CurrentDirectory;
         (int exitCode, string standardOutput, string standardError) result;
 
         try
@@ -97,12 +100,16 @@ public abstract class PackageManagerBase : IPackageManager
         }
         catch (Win32Exception exception) when (useSudo && exception.NativeErrorCode == 2)
         {
-            throw new PackageManagerException($"Cannot {actionDescription} using '{this.Name}': sudo was not found. Install sudo or run EnvManager as root.", exception);
+            throw new PackageManagerException($"Cannot {actionDescription} using '{this.Name}': sudo was not found. Install sudo or run EnvManager as root. Command: {FormatCommand(executable, commandArguments)}", executable, commandArguments, workingDirectory, GetEnvironmentVariables(), exception);
         }
         catch (Win32Exception exception)
         {
             throw new PackageManagerException(
-                $"Cannot start '{executable}' to {actionDescription} using '{this.Name}' (OS error {exception.NativeErrorCode}: {exception.Message}). Verify the executable, its PATH entry, and the current working directory.",
+                $"Cannot start '{executable}' to {actionDescription} using '{this.Name}' (OS error {exception.NativeErrorCode}: {exception.Message}). Verify the executable, its PATH entry, and the current working directory. Command: {FormatCommand(executable, commandArguments)}",
+                executable,
+                commandArguments,
+                workingDirectory,
+                GetEnvironmentVariables(),
                 exception);
         }
 
@@ -112,9 +119,24 @@ public abstract class PackageManagerBase : IPackageManager
         {
             string details = string.IsNullOrWhiteSpace(standardError) ? standardOutput : standardError;
 
-            throw new PackageManagerException($"Failed to {actionDescription} using '{this.Name}' (exit code {exitCode}).{(string.IsNullOrWhiteSpace(details) ? string.Empty : $" {details.Trim()}")}");
+            throw new PackageManagerException($"Failed to {actionDescription} using '{this.Name}' (exit code {exitCode}).{(string.IsNullOrWhiteSpace(details) ? string.Empty : $" {details.Trim()}")} Command: {FormatCommand(executable, commandArguments)}", executable, commandArguments, workingDirectory, GetEnvironmentVariables());
         }
 
+    }
+
+    private static string FormatCommand(string executable, string[] arguments)
+        => string.Join(' ', [executable, .. arguments]);
+
+    private static Dictionary<string, string> GetEnvironmentVariables()
+    {
+        Dictionary<string, string> variables = new(StringComparer.Ordinal);
+
+        foreach (DictionaryEntry entry in Environment.GetEnvironmentVariables())
+        {
+            variables[(string)entry.Key] = entry.Value as string ?? string.Empty;
+        }
+
+        return variables;
     }
 
     [DllImport("libc", EntryPoint = "geteuid")]

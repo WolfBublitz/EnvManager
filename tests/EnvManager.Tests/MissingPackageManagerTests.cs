@@ -19,7 +19,7 @@ namespace EnvManager.Tests;
 public sealed class MissingPackageManagerTests
 {
     [Test]
-    public async Task ProcessStartFailureIncludesOperatingSystemDiagnostic()
+    public async Task ProcessStartFailureIncludesOperatingSystemDiagnosticAndWorkingDirectory()
     {
         MissingManager manager = new();
 
@@ -29,6 +29,7 @@ public sealed class MissingPackageManagerTests
         await Assert.That(exception.Message).Contains("OS error");
         await Assert.That(exception.Message).Contains("Verify the executable");
         await Assert.That(exception.Message).DoesNotContain("not installed");
+        await Assert.That(exception.WorkingDirectory).IsEqualTo(Environment.CurrentDirectory);
     }
 
     private sealed class MissingManager : PackageManagerBase
