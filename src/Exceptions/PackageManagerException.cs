@@ -25,7 +25,7 @@ public sealed class PackageManagerException : EnvManagerException
     /// </summary>
     /// <param name="message">A human-readable description of the error.</param>
     public PackageManagerException(string message)
-        : base(message)
+        : base(FormatMessage(message, Environment.GetEnvironmentVariable("PATH")))
     {
     }
 
@@ -45,7 +45,7 @@ public sealed class PackageManagerException : EnvManagerException
         string workingDirectory,
         IReadOnlyDictionary<string, string> environmentVariables,
         Exception? innerException = null)
-        : base(message, innerException!)
+        : base(FormatMessage(message, GetPath(environmentVariables)), innerException!)
     {
         this.Command = command;
         this.Arguments = arguments;
@@ -68,4 +68,24 @@ public sealed class PackageManagerException : EnvManagerException
 
     /// <summary>Gets the environment variables the process ran with. May contain sensitive values; do not log blindly.</summary>
     public IReadOnlyDictionary<string, string> EnvironmentVariables { get; } = new Dictionary<string, string>();
+
+    // ┌────────────────────────────────────────────────────────────────────────────────┐
+    // │ private Method                                                                 │
+    // └────────────────────────────────────────────────────────────────────────────────┘
+
+    private static string FormatMessage(string message, string? path)
+        => $"{message}{Environment.NewLine}PATH: {path ?? "<not set>"}";
+
+    private static string? GetPath(IReadOnlyDictionary<string, string> environmentVariables)
+    {
+        foreach (KeyValuePair<string, string> environmentVariable in environmentVariables)
+        {
+            if (string.Equals(environmentVariable.Key, "PATH", StringComparison.OrdinalIgnoreCase))
+            {
+                return environmentVariable.Value;
+            }
+        }
+
+        return null;
+    }
 }

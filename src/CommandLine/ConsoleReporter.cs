@@ -34,6 +34,11 @@ public static class ConsoleReporter
     public static void Error(string message)
         => AnsiConsole.MarkupLineInterpolated($"[red]❌ {message}[/]");
 
+    /// <summary>Writes a formatted exception using Spectre.Console.</summary>
+    /// <param name="exception">The exception to render.</param>
+    public static void Exception(Exception exception)
+        => AnsiConsole.WriteException(exception, ExceptionFormats.ShortenEverything);
+
     /// <summary>Writes a yellow warning message.</summary>
     /// <param name="message">The message to render. Treated as plain text, not markup.</param>
     public static void Warning(string message)

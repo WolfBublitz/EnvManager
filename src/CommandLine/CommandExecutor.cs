@@ -41,13 +41,13 @@ public static class CommandExecutor
         }
         catch (EnvManagerException exception)
         {
-            ConsoleReporter.Error(exception.Message);
+            ConsoleReporter.Exception(exception);
 
             return 1;
         }
         catch (Exception exception)
         {
-            ConsoleReporter.Error($"Unexpected error: {exception.Message}");
+            ConsoleReporter.Exception(exception);
 
             return 1;
         }

@@ -30,6 +30,15 @@ public sealed class MissingPackageManagerTests
         await Assert.That(exception.Message).Contains("Verify the executable");
         await Assert.That(exception.Message).DoesNotContain("not installed");
         await Assert.That(exception.WorkingDirectory).IsEqualTo(Environment.CurrentDirectory);
+        await Assert.That(exception.Message).Contains($"PATH: {Environment.GetEnvironmentVariable("PATH") ?? "<not set>"}");
+    }
+
+    [Test]
+    public async Task MessageOnlyExceptionIncludesPath()
+    {
+        PackageManagerException exception = new("Package manager was not found.");
+
+        await Assert.That(exception.Message).Contains($"PATH: {Environment.GetEnvironmentVariable("PATH") ?? "<not set>"}");
     }
 
     private sealed class MissingManager : PackageManagerBase
