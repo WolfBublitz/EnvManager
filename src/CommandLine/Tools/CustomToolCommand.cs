@@ -19,15 +19,12 @@ internal static class CustomToolCommand
 
         ConsoleReporter.Warning("This command comes from environment configuration. Review it before execution.");
         ConsoleReporter.Info($"Command: {command}");
-        if (!assumeYes)
+        if (!assumeYes && !await ConsoleReporter.ConfirmAsync(
+            $"Run this custom {operation} command for '{toolName}'?",
+            defaultValue: false,
+            cancellationToken).ConfigureAwait(false))
         {
-            ConsoleReporter.Info("Run this custom command? [y/N]");
-            string? answer = await Console.In.ReadLineAsync(cancellationToken).ConfigureAwait(false);
-            if (!string.Equals(answer?.Trim(), "y", StringComparison.OrdinalIgnoreCase)
-                && !string.Equals(answer?.Trim(), "yes", StringComparison.OrdinalIgnoreCase))
-            {
-                throw new ConfigurationException($"Execution of the custom {operation} command for '{toolName}' was declined.");
-            }
+            throw new ConfigurationException($"Execution of the custom {operation} command for '{toolName}' was declined.");
         }
 
         cancellationToken.ThrowIfCancellationRequested();

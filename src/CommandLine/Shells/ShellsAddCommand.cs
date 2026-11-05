@@ -45,10 +45,10 @@ public sealed class ShellsAddCommand : Command
             if (!alreadyConfigured && !parseResult.GetValue(yesOption))
             {
                 ConsoleReporter.Warning($"The '{normalizedName}' profile will source scripts from this environment repository.");
-                ConsoleReporter.Info("Review the repository scripts before trusting them. Install the loader? [y/N]");
-                string? answer = await Console.In.ReadLineAsync(cancellationToken).ConfigureAwait(false);
-                if (!string.Equals(answer?.Trim(), "y", StringComparison.OrdinalIgnoreCase)
-                    && !string.Equals(answer?.Trim(), "yes", StringComparison.OrdinalIgnoreCase))
+                if (!await ConsoleReporter.ConfirmAsync(
+                    "Review the repository scripts before trusting them. Install the loader?",
+                    defaultValue: false,
+                    cancellationToken).ConfigureAwait(false))
                 {
                     ConsoleReporter.Warning("Shell integration cancelled. No profile files were changed.");
                     return;

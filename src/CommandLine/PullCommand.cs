@@ -38,9 +38,15 @@ public sealed class PullCommand : Command
             EnvironmentRepository repository = EnvironmentRepository.OpenExisting();
             string environmentName = await repository.GetCurrentEnvironmentNameAsync(cancellationToken).ConfigureAwait(false);
 
-            ConsoleReporter.Info($"Fetching changes for environment '{environmentName}'...");
             (string target, string incoming, string localChanges, string localCommits, IReadOnlyList<string> obstructions) =
-                await repository.Git.PreviewPullAsync(cancellationToken).ConfigureAwait(false);
+                (string.Empty, string.Empty, string.Empty, string.Empty, Array.Empty<string>());
+            await ConsoleReporter.RunWithStatusAsync(
+                $"Fetching changes for environment '{environmentName}'",
+                async () =>
+                {
+                    (target, incoming, localChanges, localCommits, obstructions) =
+                        await repository.Git.PreviewPullAsync(cancellationToken).ConfigureAwait(false);
+                }).ConfigureAwait(false);
 
             ConsoleReporter.Info($"Incoming changes (local commit to remote {target}):");
             ConsoleReporter.Info(string.IsNullOrWhiteSpace(incoming) ? "  None." : incoming);
@@ -50,7 +56,7 @@ public sealed class PullCommand : Command
             ConsoleReporter.Info(string.IsNullOrWhiteSpace(localCommits) ? "  None." : localCommits);
             if (obstructions.Count > 0)
             {
-                ConsoleReporter.Warning("Existing files or directories at incoming paths may be overwritten or removed:");
+                ConsoleReporter.Warning("Incoming paths may overwrite or remove existing files or directories:");
                 foreach (string path in obstructions)
                 {
                     ConsoleReporter.Warning($"  {path}");
@@ -58,22 +64,25 @@ public sealed class PullCommand : Command
             }
 
             ConsoleReporter.Warning("Pull replaces the local branch, index and work tree without a backup.");
-            if (!parseResult.GetValue(yesOption))
+            if (!parseResult.GetValue(yesOption) && !await ConsoleReporter.ConfirmAsync(
+                "Apply this pull?",
+                defaultValue: false,
+                cancellationToken).ConfigureAwait(false))
             {
-                ConsoleReporter.Info("Apply this pull? [y/N]");
-                string? answer = await Console.In.ReadLineAsync(cancellationToken).ConfigureAwait(false);
-                if (!string.Equals(answer?.Trim(), "y", StringComparison.OrdinalIgnoreCase) &&
-                    !string.Equals(answer?.Trim(), "yes", StringComparison.OrdinalIgnoreCase))
-                {
-                    ConsoleReporter.Warning("Pull cancelled. No local changes were applied.");
-                    return;
-                }
+                ConsoleReporter.Warning("Pull cancelled. No local changes were applied.");
+                return;
             }
 
-            await repository.Git.ApplyPullAsync(target, cancellationToken).ConfigureAwait(false);
-            await repository.RefreshShellEnvironmentAsync(cancellationToken).ConfigureAwait(false);
+            await ConsoleReporter.RunWithStatusAsync(
+                $"Applying changes to environment '{environmentName}'",
+                async () =>
+                {
+                    await repository.Git.ApplyPullAsync(target, cancellationToken).ConfigureAwait(false);
+                    await repository.RefreshShellEnvironmentAsync(cancellationToken).ConfigureAwait(false);
+                }).ConfigureAwait(false);
 
             ConsoleReporter.Success($"Pulled the latest changes for environment '{environmentName}'.");
         }));
     }
+
 }

@@ -4,6 +4,7 @@
 // │ Created: 2026-09-18                                                            │
 // └────────────────────────────────────────────────────────────────────────────────┘
 
+using System;
 using System.Collections.Generic;
 using System.CommandLine;
 using System.Linq;
@@ -54,6 +55,35 @@ public sealed class ToolsUpdateCommand : Command
             {
                 ConsoleReporter.Info($"No tools are tracked for environment '{configuration.Name}'.");
                 return;
+            }
+
+            if (toolsToUpdate.Count > 1 && toolsToUpdate.All(tool => tool.InstallCommand is null))
+            {
+                List<(ToolDefinition Tool, IPackageManager PackageManager)> packageOperations = [];
+                foreach (ToolDefinition tool in toolsToUpdate)
+                {
+                    IPackageManager packageManager = tool.PackageManager is null
+                        ? await PackageManagerFactory.DetectAsync(cancellationToken).ConfigureAwait(false)
+                        : PackageManagerFactory.GetByName(tool.PackageManager);
+                    packageOperations.Add((tool, packageManager));
+                }
+
+                if (!OperatingSystem.IsLinux() || !packageOperations.Any(operation => operation.PackageManager.RequiresElevation))
+                {
+                    await ConsoleReporter.RunProgressAsync(
+                        $"Updating tools in environment '{configuration.Name}'",
+                        packageOperations,
+                        operation => $"{operation.Tool.Name} via {operation.PackageManager.Name}",
+                        operation => operation.PackageManager.UpdateAsync(operation.Tool.Name, cancellationToken)).ConfigureAwait(false);
+
+                    foreach ((ToolDefinition tool, _) in packageOperations)
+                    {
+                        ConsoleReporter.Success($"Updated tool '{tool.Name}'.");
+                    }
+
+                    await repository.SaveConfigurationAsync(configuration, "Update tools.", cancellationToken).ConfigureAwait(false);
+                    return;
+                }
             }
 
             foreach (ToolDefinition tool in toolsToUpdate)

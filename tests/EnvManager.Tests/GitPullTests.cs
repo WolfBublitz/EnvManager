@@ -243,7 +243,7 @@ public sealed class GitPullTests
             await Assert.That(output).Contains("D\tobsolete");
             await Assert.That(output).Contains("MM settings");
             await Assert.That(output).Contains("local change");
-            await Assert.That(output).Contains("overwritten or removed");
+            await Assert.That(output).Contains("may overwrite or remove existing files or directories");
             await Assert.That(output).Contains("cancelled");
             await Assert.That(await RunClientAsync(client, "rev-parse", "HEAD")).IsEqualTo(localCommit);
             await Assert.That(await RunClientAsync(client, "show", ":settings")).IsEqualTo("staged");

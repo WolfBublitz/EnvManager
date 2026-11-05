@@ -59,21 +59,27 @@ public sealed class PushCommand : Command
                     AnsiConsole.MarkupLineInterpolated($"  [grey]{label,-9}[/] {path}");
                 }
 
-                if (!skipConfirmation && !AnsiConsole.Confirm("Commit these changes and push?", defaultValue: false))
+                if (!skipConfirmation && !await ConsoleReporter.ConfirmAsync(
+                    "Commit these changes and push?",
+                    defaultValue: false,
+                    cancellationToken).ConfigureAwait(false))
                 {
                     ConsoleReporter.Warning("Push cancelled. No changes were committed.");
                     return;
                 }
             }
-            else if (!skipConfirmation && !AnsiConsole.Confirm($"No uncommitted changes. Push environment '{environmentName}' to the remote repository?", defaultValue: true))
+            else if (!skipConfirmation && !await ConsoleReporter.ConfirmAsync(
+                $"No uncommitted changes. Push environment '{environmentName}' to the remote repository?",
+                defaultValue: true,
+                cancellationToken).ConfigureAwait(false))
             {
                 ConsoleReporter.Warning("Push cancelled.");
                 return;
             }
 
-            ConsoleReporter.Info($"Pushing environment '{environmentName}'...");
-
-            await repository.PushAsync(changes, cancellationToken).ConfigureAwait(false);
+            await ConsoleReporter.RunWithStatusAsync(
+                $"Pushing environment '{environmentName}'",
+                () => repository.PushAsync(changes, cancellationToken)).ConfigureAwait(false);
 
             ConsoleReporter.Success($"Pushed environment '{environmentName}' to the remote repository.");
         }));
