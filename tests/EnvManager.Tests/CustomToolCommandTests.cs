@@ -23,6 +23,7 @@ public sealed class CustomToolCommandTests
         {
             await RunSuccessAsync(root.FullName, "init", "--environment", "main");
             await RunSuccessAsync(root.FullName, "tools", "add", "example",
+                "--yes",
                 "--install-command", "printf 'installed\\n' >> events",
                 "--update-command", "printf 'updated\\n' >> events",
                 "--remove-command", "printf 'removed\\n' >> events");
@@ -31,8 +32,8 @@ public sealed class CustomToolCommandTests
             await Assert.That(config).Contains("updateCommand:");
             await Assert.That(config).Contains("removeCommand:");
             await Assert.That(await RunSuccessAsync(root.FullName, "tools", "list")).Contains("custom command");
-            await RunSuccessAsync(root.FullName, "tools", "update", "example");
-            await RunSuccessAsync(root.FullName, "tools", "remove", "example");
+            await RunSuccessAsync(root.FullName, "tools", "update", "example", "--yes");
+            await RunSuccessAsync(root.FullName, "tools", "remove", "example", "--yes");
             await Assert.That(File.ReadAllText(Path.Combine(root.FullName, "events"))).IsEqualTo("installed\nupdated\nremoved\n");
             await Assert.That(await RunSuccessAsync(root.FullName, "tools", "list")).Contains("No tools are tracked");
         }
@@ -52,22 +53,22 @@ public sealed class CustomToolCommandTests
             string exit7 = OperatingSystem.IsWindows() ? "exit /b 7" : "exit 7";
             string exit8 = OperatingSystem.IsWindows() ? "exit /b 8" : "exit 8";
             await RunSuccessAsync(root.FullName, "init", "--environment", "main");
-            (int failedInstall, string installOutput) = await RunAsync(root.FullName, "tools", "add", "bad", "--install-command", exit7);
+            (int failedInstall, string installOutput) = await RunAsync(root.FullName, "tools", "add", "bad", "--yes", "--install-command", exit7);
             await Assert.That(failedInstall).IsNotEqualTo(0);
             await Assert.That(installOutput).Contains("exit code 7");
             await Assert.That(await RunSuccessAsync(root.FullName, "tools", "list")).Contains("No tools are tracked");
 
-            await RunSuccessAsync(root.FullName, "tools", "add", "example", "--install-command", successfulCommand, "--remove-command", exit8);
-            (int failedUpdate, string updateOutput) = await RunAsync(root.FullName, "tools", "update", "example");
+            await RunSuccessAsync(root.FullName, "tools", "add", "example", "--yes", "--install-command", successfulCommand, "--remove-command", exit8);
+            (int failedUpdate, string updateOutput) = await RunAsync(root.FullName, "tools", "update", "example", "--yes");
             await Assert.That(failedUpdate).IsNotEqualTo(0);
             await Assert.That(updateOutput).Contains("No update command");
-            (int failedRemove, string removeOutput) = await RunAsync(root.FullName, "tools", "remove", "example");
+            (int failedRemove, string removeOutput) = await RunAsync(root.FullName, "tools", "remove", "example", "--yes");
             await Assert.That(failedRemove).IsNotEqualTo(0);
             await Assert.That(removeOutput).Contains("exit code 8");
             await Assert.That(await RunSuccessAsync(root.FullName, "tools", "list")).Contains("example");
 
-            await RunSuccessAsync(root.FullName, "tools", "add", "no-remove", "--install-command", successfulCommand);
-            (int missingRemove, string missingOutput) = await RunAsync(root.FullName, "tools", "remove", "no-remove");
+            await RunSuccessAsync(root.FullName, "tools", "add", "no-remove", "--yes", "--install-command", successfulCommand);
+            (int missingRemove, string missingOutput) = await RunAsync(root.FullName, "tools", "remove", "no-remove", "--yes");
             await Assert.That(missingRemove).IsNotEqualTo(0);
             await Assert.That(missingOutput).Contains("No remove command");
             await Assert.That(await RunSuccessAsync(root.FullName, "tools", "list")).Contains("no-remove");
@@ -82,6 +83,35 @@ public sealed class CustomToolCommandTests
             (int orphan, string orphanOutput) = await RunAsync(root.FullName, "tools", "add", "other", "--update-command", successfulCommand);
             await Assert.That(orphan).IsNotEqualTo(0);
             await Assert.That(orphanOutput).Contains("require --install-command");
+        }
+        finally
+        {
+            Directory.Delete(root.FullName, recursive: true);
+        }
+    }
+
+    [Test]
+    public async Task CustomCommandRequiresApprovalByDefault()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        DirectoryInfo root = CreateRoot();
+        try
+        {
+            await RunSuccessAsync(root.FullName, "init", "--environment", "main");
+            (int exitCode, string output) = await RunAsync(
+                root.FullName,
+                "tools", "add", "example",
+                "--install-command", "printf 'executed\\n' > events");
+
+            await Assert.That(exitCode).IsNotEqualTo(0);
+            await Assert.That(output).Contains("declined");
+            await Assert.That(output).Contains("printf 'executed\\n' > events");
+            await Assert.That(File.Exists(Path.Combine(root.FullName, "events"))).IsFalse();
+            await Assert.That(await RunSuccessAsync(root.FullName, "tools", "list")).Contains("No tools are tracked");
         }
         finally
         {
@@ -114,6 +144,7 @@ public sealed class CustomToolCommandTests
             WorkingDirectory = home,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
+            RedirectStandardInput = true,
             UseShellExecute = false,
         };
         startInfo.Environment["ENVMANAGER_HOME"] = home;
@@ -128,6 +159,7 @@ public sealed class CustomToolCommandTests
         }
 
         using Process process = Process.Start(startInfo) ?? throw new InvalidOperationException("Could not start EnvManager.");
+        process.StandardInput.Close();
         Task<string> output = process.StandardOutput.ReadToEndAsync();
         Task<string> error = process.StandardError.ReadToEndAsync();
         await process.WaitForExitAsync();

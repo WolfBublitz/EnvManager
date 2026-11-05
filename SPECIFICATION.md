@@ -18,18 +18,18 @@ The purpose of the EnvManager project is to provide a robust and user-friendly t
 The EnvManager project will utilize the following technologies:
 
 - Programming Language: C# / .NET11
-- Shell Scripting: Bash, Zsh
-- Configuration Management: YAML or JSON for storing environment configurations
+- Shell Scripting: Bash, Zsh, Fish, PowerShell, and CMD
+- Configuration Management: YAML for storing environment configurations
 - Version Control: Git
 - Testing Framework: TUnit
 - CLI Framework: System.CommandLine
 - Package Management: NuGet for managing C# dependencies
 
-### CLI Input  Output
+### CLI Input and Output
 
 - Use [Spectre.Console](https://spectreconsole.net/) for rendering CLI output.
-- Use [Spectre.Console](https://spectreconsole.net/) for handling CLI input.
-- Use progress bars or progress indicators for long-running operations.
+- Use explicit terminal confirmation for operations that execute shared custom commands or discard local changes; confirmations default to no.
+- Use progress indicators for long-running operations where appropriate.
 - Provided color-coded output for better readability:
   - green for successful operations
   - red for errors
@@ -85,7 +85,7 @@ The backend of the EnvManager uses a git repository to store and manage environm
 - Each environment configuration is stored as a separate branch.
 - The branch name corresponds to the environment name (e.g., `laptop`, `office`, `server`).
 
-Inside each branch, the environment configuration is stored as a single YAML file called `environment.yaml` at `$HOME/.EnvManager/`. The configuration shall be part of the repository. It should be created if not exists.
+Inside each branch, the environment configuration is stored as `$HOME/.EnvManager/config.yml`. This is the canonical configuration file and is tracked in the bare repository's home-directory work tree. It shall be created if it does not exist. Other files are tracked at their paths relative to `$HOME`.
 
 ### Git Setup
 
@@ -138,7 +138,7 @@ envmanager:
     add:    # Enables a shell and installs its profile loader.
     remove: # Disables a shell and restores its backed-up profile files.
     list:   # Lists shells configured for the current environment.
-  file:
+  files:
     add:    # Adds a new file or configuration (to the repository)
     remove: # Removes an existing file or configuration (from the repository)
     list:   # Lists all files and configurations (in the repository).
@@ -161,6 +161,7 @@ Syntax:
   EnvManager [command]
 
 Commands:
+  init        Initializes a new local environment configuration.
   clone       Clones the environment configuration.
   variable    Manage environment variables and configurations.
   tools       Manage tools and configurations.
@@ -416,7 +417,7 @@ Possible shells include:
 | powershell | Linux, macOS, Windows |
 | cmd        | Windows               |
 
-Use `shells add <shell>` to install a loader and back up any existing profile under `$HOME/.EnvManager/backups/shell-profiles`. Use `shells remove <shell>` to restore the original profile files when the installed loader has not been modified.
+Use `shells add <shell>` to install a loader and back up any existing profile under `$HOME/.EnvManager/backups/shell-profiles`. Use `shells remove <shell>` to restore the original profile files when the installed loader has not been modified. Installation shall stage profile replacements and roll back all changed profiles if any step fails. Shell loaders execute scripts from the environment repository; review and trust repository contents before enabling integration.
 
 When a loader profile is not tracked in the current environment, `shells add` shall
 commit it and push the current branch to `origin`. Existing tracked profiles shall not
@@ -510,6 +511,11 @@ then leaves the tool tracked. Custom commands cannot be combined with a package
 manager or version option. Commands in shared configuration must be reviewed before
 execution and must not contain secrets.
 
+Before each custom command runs, EnvManager displays it and asks for confirmation;
+declining (including end-of-input) does not execute the command. The prompt defaults
+to no. `tools add`, `tools update`, and `tools remove` accept `--yes` to bypass the
+prompt for a command the user has already reviewed.
+
 #### Supported Package Managers
 
 EnvManager supports the following package managers:
@@ -533,21 +539,41 @@ which handles any authentication prompt. Availability checks do not require elev
 
 EnvManager allows you to manage environment variables efficiently. You can set, update, remove, and list environment variables using the respective commands.
 
-- Environment variables shall be set on user scope.
-- They shall be set for all configured shells.
+- Variable names must be valid portable environment-variable identifiers (ASCII letters, digits, and underscores; the first character is a letter or underscore).
+- Variable values are stored in plaintext in `config.yml`; they may be committed and pushed. Secrets must not be stored there.
+- On configuration load, update, environment switch, and pull, EnvManager generates shell-quoted exports for configured shells on the current operating system under `$HOME/.EnvManager/<shell>/`.
+- Bash and Zsh exports use `.sh`, Fish uses `.fish`, PowerShell uses `.ps1`, and CMD uses `.cmd`; installed profile loaders source these files for newly started shells.
+- Generated variable-export files are maintained by EnvManager and shall not be added separately with `files add`.
+- A shell-startup change affects new shell processes, not already-running processes.
+- CMD export values containing double quotes, percent signs, exclamation marks, or line breaks cannot be safely represented and shall fail with a clear error.
+- Values from shared or cloned repositories shall be reviewed. Repositories and shell scripts are executable content and must be trusted before profile integration is enabled.
+
+### Custom Tool Command Safety
+
+- Before a custom install, update, or remove command runs, EnvManager shall display the command and request explicit approval, defaulting to no.
+- The `tools add`, `tools update`, and `tools remove` commands may accept `--yes` to bypass the prompt for reviewed, trusted configuration.
+- A declined command shall not run and shall not update tool tracking.
+- Commands stored in a shared configuration must be reviewed before execution. Secrets must not be embedded in custom commands.
+- `shells add` shall ask the user to trust the repository before installing a loader that will source its scripts; the prompt defaults to no. `shells add --yes` may bypass the prompt for a reviewed repository.
 
 ## Installation
 
-The installation shall be possible via shellscript that can be downloaded and executed. The script should:
+The installation shall be possible via shell script (Linux/macOS) or PowerShell script (Windows) that can be downloaded and executed. Both installers require the GitHub CLI (`gh`) with attestation-verification support. The installer shall:
 
 - download the latest EnvManager executable for the respective operating system
 - place it in a directory included in the system's PATH
 - make the script executable
+- verify the GitHub build-provenance attestation for the downloaded release asset before replacing the installed executable
+- require GitHub CLI (`gh`) with attestation-verification support and fail closed when verification fails
+
+The release workflow shall run the TUnit test suite before publishing AOT binaries and shall
+attest each release asset using GitHub build provenance. Installers must verify the asset's
+attestation for this repository before installation.
 
 ### Download Url
 
 ```bash
-https://github.com/WolfBublitz/EnvManager/releases/download/<version>/EnvManager-<os>-<arch>
+https://github.com/WolfBublitz/EnvManager/releases/download/<version>/EnvManager-<os>-<arch>[.exe on Windows]
 ```
 
 Replace:
@@ -577,7 +603,7 @@ The default `--install-dir` should be `$HOME/.local/bin`. It should be created i
 ### Windows
 
 ```pwsh
-ire "https://raw.githubusercontent.com/WolfBublitz/EnvManager/refs/heads/master/install.ps1" -UseBasicParsing | Invoke-Expression
+Invoke-RestMethod "https://raw.githubusercontent.com/WolfBublitz/EnvManager/refs/heads/master/install.ps1" | Invoke-Expression
 ```
 
 The default `--install-dir` should be `$HOME/.local/bin`. It should be created if it does not exist.

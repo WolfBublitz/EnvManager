@@ -6,6 +6,7 @@
 
 using System;
 using System.Diagnostics;
+using System.IO;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -47,6 +48,8 @@ public static class ProcessRunner
     /// <exception cref="System.ComponentModel.Win32Exception">Thrown when the executable cannot be started.</exception>
     public static async Task<(int ExitCode, string StandardOutput, string StandardError)> RunAsync(string executable, string[] arguments, CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
+
         ProcessStartInfo startInfo = new(executable)
         {
             RedirectStandardOutput = true,
@@ -87,7 +90,30 @@ public static class ProcessRunner
         process.BeginOutputReadLine();
         process.BeginErrorReadLine();
 
-        await process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            await process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            if (!process.HasExited)
+            {
+                try
+                {
+                    process.Kill(entireProcessTree: true);
+                }
+                catch (InvalidOperationException) when (process.HasExited)
+                {
+                }
+                catch (System.ComponentModel.Win32Exception exception)
+                {
+                    throw new IOException($"Process '{executable}' was cancelled, but its process could not be terminated.", exception);
+                }
+            }
+
+            await process.WaitForExitAsync(CancellationToken.None).ConfigureAwait(false);
+            throw;
+        }
 
         return (process.ExitCode, standardOutput.ToString().TrimEnd(), standardError.ToString().TrimEnd());
     }

@@ -7,6 +7,7 @@
 using System.CommandLine;
 
 using EnvManager.Configuration;
+using EnvManager.Shells;
 
 namespace EnvManager.CommandLine.Variable;
 
@@ -34,6 +35,8 @@ public sealed class VariableSetCommand : Command
         {
             string name = parseResult.GetValue(nameArgument)!;
             string value = parseResult.GetValue(valueArgument)!;
+            ShellEnvironmentExporter.ValidateVariableName(name);
+            ConsoleReporter.Warning("Variable values are stored in plaintext configuration and may be committed or pushed. Do not store secrets.");
 
             EnvironmentRepository repository = EnvironmentRepository.OpenExisting();
             EnvironmentConfiguration configuration = await repository.LoadConfigurationAsync(cancellationToken).ConfigureAwait(false);

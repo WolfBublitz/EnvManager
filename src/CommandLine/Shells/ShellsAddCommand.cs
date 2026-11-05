@@ -25,8 +25,13 @@ public sealed class ShellsAddCommand : Command
         {
             Description = "The shell to enable: bash, zsh, fish, powershell, or cmd.",
         };
+        Option<bool> yesOption = new("--yes", "-y")
+        {
+            Description = "Trust the current environment repository and install its shell loader without prompting.",
+        };
 
         this.Add(shellNameArgument);
+        this.Add(yesOption);
 
         this.SetAction((parseResult, cancellationToken) => CommandExecutor.RunAsync(async () =>
         {
@@ -36,6 +41,19 @@ public sealed class ShellsAddCommand : Command
             ShellProfileInstaller installer = new(EnvManagerPaths.HomeDirectory, OperatingSystem.IsWindows());
             string normalizedName = installer.NormalizeShellName(shellName);
             bool alreadyConfigured = configuration.Shells.Any(shell => string.Equals(shell, normalizedName, StringComparison.OrdinalIgnoreCase));
+
+            if (!alreadyConfigured && !parseResult.GetValue(yesOption))
+            {
+                ConsoleReporter.Warning($"The '{normalizedName}' profile will source scripts from this environment repository.");
+                ConsoleReporter.Info("Review the repository scripts before trusting them. Install the loader? [y/N]");
+                string? answer = await Console.In.ReadLineAsync(cancellationToken).ConfigureAwait(false);
+                if (!string.Equals(answer?.Trim(), "y", StringComparison.OrdinalIgnoreCase)
+                    && !string.Equals(answer?.Trim(), "yes", StringComparison.OrdinalIgnoreCase))
+                {
+                    ConsoleReporter.Warning("Shell integration cancelled. No profile files were changed.");
+                    return;
+                }
+            }
 
             IReadOnlyList<string> profilePaths = installer.Install(normalizedName);
             bool addedProfile = false;

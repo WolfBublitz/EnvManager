@@ -11,9 +11,30 @@ on:
       - '**'
 
 jobs:
+  test:
+    name: Run tests
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 11.0.x
+      - name: Test
+        run: dotnet run --project tests/EnvManager.Tests/EnvManager.Tests.csproj -c Release
+
   build:
     name: Build ${{ matrix.rid }} AOT
     runs-on: ${{ matrix.os }}
+    needs: test
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
     strategy:
       matrix:
         include:
@@ -55,6 +76,12 @@ jobs:
         run: |
           mkdir -p release
           cp "src/bin/Release/net11.0/${{ matrix.rid }}/publish/EnvManager${{ endsWith(matrix.asset, '.exe') && '.exe' || '' }}" "release/${{ matrix.asset }}"
+
+      - name: Attest release asset
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: actions/attest-build-provenance@v3
+        with:
+          subject-path: release/${{ matrix.asset }}
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v7

@@ -49,6 +49,29 @@ public sealed class ShellProfileInstallerTests
     }
 
     [Test]
+    public async Task InstallBashRollsBackEarlierProfileWritesWhenAProfileCannotBeReplaced()
+    {
+        DirectoryInfo home = CreateHome();
+        try
+        {
+            string bashrc = Path.Combine(home.FullName, ".bashrc");
+            File.WriteAllText(bashrc, "original bashrc");
+            Directory.CreateDirectory(Path.Combine(home.FullName, ".bash_profile"));
+
+            ShellProfileInstaller installer = new(home, isWindows: false);
+            await Assert.That(() => installer.Install("bash")).Throws<IOException>();
+
+            await Assert.That(File.ReadAllText(bashrc)).IsEqualTo("original bashrc");
+            await Assert.That(File.Exists(Path.Combine(home.FullName, ".EnvManager", "backups", "shell-profiles", "bash", ".bashrc"))).IsFalse();
+            await Assert.That(Directory.Exists(Path.Combine(home.FullName, ".bash_profile"))).IsTrue();
+        }
+        finally
+        {
+            Directory.Delete(home.FullName, recursive: true);
+        }
+    }
+
+    [Test]
     public async Task InstallBashUpgradesLegacyLoaderAndPreservesOriginalBackup()
     {
         DirectoryInfo home = CreateHome();

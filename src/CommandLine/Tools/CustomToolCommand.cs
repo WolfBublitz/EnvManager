@@ -10,11 +10,24 @@ namespace EnvManager.CommandLine.Tools;
 
 internal static class CustomToolCommand
 {
-    public static async Task RunAsync(string? command, string toolName, string operation, CancellationToken cancellationToken)
+    public static async Task RunAsync(string? command, string toolName, string operation, bool assumeYes, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(command))
         {
             throw new ConfigurationException($"No {operation} command is configured for custom tool '{toolName}'.");
+        }
+
+        ConsoleReporter.Warning("This command comes from environment configuration. Review it before execution.");
+        ConsoleReporter.Info($"Command: {command}");
+        if (!assumeYes)
+        {
+            ConsoleReporter.Info("Run this custom command? [y/N]");
+            string? answer = await Console.In.ReadLineAsync(cancellationToken).ConfigureAwait(false);
+            if (!string.Equals(answer?.Trim(), "y", StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(answer?.Trim(), "yes", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new ConfigurationException($"Execution of the custom {operation} command for '{toolName}' was declined.");
+            }
         }
 
         cancellationToken.ThrowIfCancellationRequested();

@@ -13,6 +13,7 @@ using System.Threading.Tasks;
 
 using EnvManager.Exceptions;
 using EnvManager.Git;
+using EnvManager.Shells;
 
 namespace EnvManager.Configuration;
 
@@ -75,7 +76,7 @@ public sealed class EnvironmentRepository
         EnvironmentRepository repository = new(git);
 
         // Route through SwitchAsync (rather than calling GitClient directly) so that a
-        // brand-new environment branch is left with a committed environment.yaml, just
+        // brand-new environment branch is left with a committed config.yml, just
         // like when switching to a new environment on an already-cloned repository.
         await repository.SwitchAsync(environmentName, allowCreate: true, cancellationToken).ConfigureAwait(false);
 
@@ -138,8 +139,9 @@ public sealed class EnvironmentRepository
     public async Task<EnvironmentConfiguration> LoadConfigurationAsync(CancellationToken cancellationToken = default)
     {
         string environmentName = await this.GetCurrentEnvironmentNameAsync(cancellationToken).ConfigureAwait(false);
-
-        return this.serializer.Load(EnvManagerPaths.EnvironmentFile, environmentName);
+        EnvironmentConfiguration configuration = this.serializer.Load(EnvManagerPaths.EnvironmentFile, environmentName);
+        ShellEnvironmentExporter.Synchronize(configuration, EnvManagerPaths.HomeDirectory, OperatingSystem.IsWindows());
+        return configuration;
     }
 
     /// <summary>Persists and commits the given configuration for the currently checked-out environment.</summary>
@@ -149,12 +151,13 @@ public sealed class EnvironmentRepository
     public async Task SaveConfigurationAsync(EnvironmentConfiguration configuration, string commitMessage, CancellationToken cancellationToken = default)
     {
         this.serializer.Save(EnvManagerPaths.EnvironmentFile, configuration);
+        ShellEnvironmentExporter.Synchronize(configuration, EnvManagerPaths.HomeDirectory, OperatingSystem.IsWindows());
 
         await this.Git.AddAsync(EnvManagerPaths.EnvironmentFileRelativePath, cancellationToken).ConfigureAwait(false);
         await this.Git.CommitAsync(commitMessage, cancellationToken).ConfigureAwait(false);
     }
 
-    /// <summary>Switches to a different environment, optionally creating it if it does not yet exist.</summary>f
+    /// <summary>Switches to a different environment, optionally creating it if it does not yet exist.</summary>
     /// <param name="environmentName">The name of the environment (branch) to switch to.</param>
     /// <param name="allowCreate">Whether to create the environment when it does not yet exist.</param>
     /// <param name="cancellationToken">A token to cancel the operation.</param>
@@ -162,12 +165,26 @@ public sealed class EnvironmentRepository
     {
         await this.Git.CheckoutBranchAsync(environmentName, allowCreate, cancellationToken).ConfigureAwait(false);
 
-        // A freshly created orphan branch has no environment.yaml yet; write one so
+        // A freshly created orphan branch has no config.yml yet; write one so
         // subsequent commands have a well-formed configuration to work with.
         if (!EnvManagerPaths.EnvironmentFile.Exists)
         {
             await this.SaveConfigurationAsync(new EnvironmentConfiguration { Name = environmentName }, $"Initialize environment '{environmentName}'.", cancellationToken).ConfigureAwait(false);
         }
+        else
+        {
+            ShellEnvironmentExporter.Synchronize(
+                this.serializer.Load(EnvManagerPaths.EnvironmentFile, environmentName),
+                EnvManagerPaths.HomeDirectory,
+                OperatingSystem.IsWindows());
+        }
+    }
+
+    /// <summary>Refreshes generated shell variable exports after an operation replaces the current configuration.</summary>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    public async Task RefreshShellEnvironmentAsync(CancellationToken cancellationToken = default)
+    {
+        _ = await this.LoadConfigurationAsync(cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>Lists all known environments (local and remote branches).</summary>
@@ -214,7 +231,7 @@ public sealed class EnvironmentRepository
 
     /// <summary>
     /// Lists every file tracked for the currently checked-out environment, excluding
-    /// the internal <c>environment.yaml</c> configuration file.
+    /// the internal <c>config.yml</c> configuration file.
     /// </summary>
     /// <param name="cancellationToken">A token to cancel the operation.</param>
     public async Task<IReadOnlyList<string>> ListFilesAsync(CancellationToken cancellationToken = default)
@@ -320,6 +337,11 @@ public sealed class EnvironmentRepository
         if (string.Equals(gitRelativePath, EnvManagerPaths.EnvironmentFileRelativePath, comparison))
         {
             throw new ConfigurationException($"'{EnvManagerPaths.EnvironmentFileRelativePath}' is managed internally and cannot be added or removed as a user file.");
+        }
+
+        if (ShellEnvironmentExporter.IsGeneratedExportPath(gitRelativePath))
+        {
+            throw new ConfigurationException($"'{gitRelativePath}' is generated by EnvManager and cannot be added or removed as a user file.");
         }
 
         return gitRelativePath;

@@ -33,6 +33,7 @@ public sealed class ToolsAddCommand : Command
         Option<string?> installCommandOption = new("--install-command") { Description = "Shell command used to install the tool instead of a package manager." };
         Option<string?> updateCommandOption = new("--update-command") { Description = "Shell command used to update a custom tool." };
         Option<string?> removeCommandOption = new("--remove-command") { Description = "Shell command used to uninstall a custom tool." };
+        Option<bool> yesOption = new("--yes", "-y") { Description = "Run a custom command without prompting. Review the command before using this option." };
 
         this.Add(toolNameArgument);
         this.Add(packageManagerOption);
@@ -40,6 +41,7 @@ public sealed class ToolsAddCommand : Command
         this.Add(installCommandOption);
         this.Add(updateCommandOption);
         this.Add(removeCommandOption);
+        this.Add(yesOption);
 
         this.SetAction((parseResult, cancellationToken) => CommandExecutor.RunAsync(async () =>
         {
@@ -70,7 +72,7 @@ public sealed class ToolsAddCommand : Command
             {
                 repository = EnvironmentRepository.OpenExisting();
                 configuration = await repository.LoadConfigurationAsync(cancellationToken).ConfigureAwait(false);
-                await CustomToolCommand.RunAsync(installCommand, toolName, "install", cancellationToken).ConfigureAwait(false);
+                await CustomToolCommand.RunAsync(installCommand, toolName, "install", parseResult.GetValue(yesOption), cancellationToken).ConfigureAwait(false);
                 definition.InstallCommand = installCommand;
                 definition.UpdateCommand = updateCommand;
                 definition.RemoveCommand = removeCommand;

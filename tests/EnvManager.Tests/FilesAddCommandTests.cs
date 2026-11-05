@@ -17,6 +17,35 @@ namespace EnvManager.Tests;
 public sealed class FilesAddCommandTests
 {
     [Test]
+    public async Task AddRejectsGeneratedVariableExportFiles()
+    {
+        DirectoryInfo root = CreateRoot();
+        try
+        {
+            string home = Directory.CreateDirectory(Path.Combine(root.FullName, "home")).FullName;
+            await RunAsync(home, "dotnet", typeof(Program).Assembly.Location, "init", "--environment", "main");
+            string generatedPath = Path.Combine(home, ".EnvManager", "bash", "00-envmanager-variables.sh");
+            Directory.CreateDirectory(Path.GetDirectoryName(generatedPath)!);
+            File.WriteAllText(generatedPath, "export VALUE='managed'");
+
+            await Assert.That(async () => await RunAsync(
+                home,
+                "dotnet",
+                typeof(Program).Assembly.Location,
+                "files",
+                "add",
+                ".EnvManager/bash/00-envmanager-variables.sh")).Throws<InvalidOperationException>();
+
+            string gitDirectory = Path.Combine(home, ".EnvManager", "repo");
+            await Assert.That(await RunAsync(home, "git", $"--git-dir={gitDirectory}", "diff", "--cached", "--name-only")).IsEqualTo(string.Empty);
+        }
+        finally
+        {
+            Directory.Delete(root.FullName, recursive: true);
+        }
+    }
+
+    [Test]
     public async Task AddStagesWithoutCommittingOrRequiringRemote()
     {
         DirectoryInfo root = CreateRoot();

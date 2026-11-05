@@ -8,13 +8,14 @@ review changes to your setup like any other code.
 
 ## Features
 
-- **Environment variables**: set, update, remove, and list user-scoped environment variables.
+- **Environment variables**: set, update, remove, and list variables exported by configured
+  shell profiles when new shells start.
 - **Tools**: install, remove, list, and update tools using your system's package manager
   (apt, dnf, yum, zypper, brew, scoop, choco, or winget — auto-detected, or explicitly selected).
 - **Files**: track arbitrary files from your home directory (e.g. dotfiles) in the
   environment repository with `add`, `remove`, and `list`.
-- **Git-backed configuration**: every environment is a branch containing a single
-  `environment.yaml` file, so changes are versioned and can be pushed/pulled between machines.
+- **Git-backed configuration**: each environment branch stores its configuration in
+  `$HOME/.EnvManager/config.yml`, so changes can be reviewed and synchronized between machines.
 - **Multiple environments**: switch between environments (branches) at any time.
 - **Shell integration**: configure bash, zsh, fish, PowerShell, and CMD profile loaders with automatic backups of existing profile files.
 - **Executable discovery**: managed shell profiles add `$HOME/.local/bin` to `PATH`.
@@ -31,7 +32,8 @@ curl -fsSL https://raw.githubusercontent.com/WolfBublitz/EnvManager/refs/heads/m
 
 Downloads the latest `EnvManager` executable for the current Linux or macOS architecture,
 installs it to `$HOME/.local/bin`, makes it executable, and adds that directory to your
-shell PATH if needed.
+shell PATH if needed. Install requires the [GitHub CLI](https://cli.github.com/) to verify
+the release's GitHub build-provenance attestation before installing the binary.
 
 ### Windows
 
@@ -40,7 +42,8 @@ irm "https://raw.githubusercontent.com/WolfBublitz/EnvManager/refs/heads/master/
 ```
 
 Downloads `EnvManager.exe`, installs it to `$HOME\.local\bin` (creating the
-directory if needed), and adds that directory to your user `PATH`.
+directory if needed), and adds that directory to your user `PATH`. The installer requires
+the GitHub CLI (`gh`) and verifies the release attestation before installing.
 
 ### Installer options
 
@@ -103,7 +106,8 @@ EnvManager stores its configuration history in a **bare** git repository at
 `$HOME/.EnvManager/repo` (override with the `ENVMANAGER_HOME` environment variable,
 which is treated as `$HOME`, primarily useful for testing). The work tree for this
 repository is your home directory itself — the same trick used by many dotfiles
-managers — so tracked files (`environment.yaml` and anything added via `files add`)
+managers — so tracked files (the configuration at `.EnvManager/config.yml` and anything
+added via `files add`)
 live directly where you'd expect them, without a dedicated checkout directory:
 
 ```bash
@@ -188,14 +192,18 @@ the command itself. Update and remove commands are optional, but the correspondi
 operation fails without one and leaves the tool tracked. They can be added or changed
 in `.EnvManager/config.yml`. A nonzero command exit code fails the operation.
 
-These commands are stored in the Git-backed environment configuration and update or
-remove executes them with your user privileges. Review commands from shared or cloned
-configurations before running them, and do not put secrets in them.
+These commands are stored in the Git-backed environment configuration and execute with
+your user privileges. EnvManager displays each custom command and requires confirmation;
+the prompt defaults to no. `tools add`, `tools update`, and `tools remove` accept `--yes`
+to skip confirmation after you have reviewed the command. Treat a cloned configuration
+repository and its shell scripts as executable code: review it before trusting it. Do not
+put secrets in commands or variable values; configuration is stored in plaintext and can
+be committed or pushed.
 
 ### Shells
 
 ```bash
-EnvManager shells add <shell_name>    # Enable a shell and install its profile loader
+EnvManager shells add <shell_name> [--yes] # Enable a shell after trusting repository scripts
 EnvManager shells remove <shell_name> # Disable a shell and restore its original profile
 EnvManager shells list                # List shells configured for this environment
 ```
@@ -211,6 +219,13 @@ are not staged again, but any changes already staged are included in the commit.
 Shell-specific files loaded by the profile
 shims belong in `$HOME/.EnvManager/<shell>/` and can be versioned with `files add`: use
 `.sh` files for bash/zsh, `.fish` for fish, and `.ps1` for PowerShell.
+Profile installation stages all replacement files and rolls back profile changes if an
+installation step fails. Configured variable exports are generated in the corresponding
+shell directory and loaded on the next shell start; changes do not modify already-running
+processes. Generated export files are maintained by EnvManager and should not be added
+separately with `files add`. Enabling a shell prompts you to trust the repository because
+its scripts will run at shell startup; `shells add --yes` bypasses this confirmation only
+after you have reviewed the repository.
 
 ### Files
 
@@ -262,8 +277,9 @@ command, exit code, standard output, and standard error.
 
 ## Configuration Storage
 
-Each environment is stored as a single `environment.yaml` file at the root of its own git
-branch (i.e. directly in your home directory when that branch is checked out):
+Each environment stores its configuration in `$HOME/.EnvManager/config.yml` in its
+environment branch. Other files added with `files add` are tracked in the bare repository
+with paths relative to the home directory:
 
 ```yaml
 name: laptop
@@ -276,8 +292,7 @@ tools:
   version: null
 ```
 
-Any files added with `files add` are tracked on the same branch, alongside
-`environment.yaml`, at their original location relative to the home directory.
+The YAML file is part of the checked-out home work tree at `.EnvManager/config.yml`.
 
 ## Development
 

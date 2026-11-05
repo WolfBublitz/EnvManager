@@ -4,7 +4,8 @@ Installs the EnvManager CLI.
 
 .DESCRIPTION
 Downloads the EnvManager executable for the current Windows architecture, places it
-in a per-user installation directory, and adds that directory to the user PATH.
+in a per-user installation directory, verifies its GitHub build provenance using the
+GitHub CLI, and adds that directory to the user PATH.
 
 .PARAMETER Version
 The release version to install. Defaults to the latest release.
@@ -32,6 +33,11 @@ param(
 $ErrorActionPreference = "Stop"
 
 $repository = "WolfBublitz/EnvManager"
+$gh = Get-Command gh -ErrorAction SilentlyContinue
+if (-not $gh) {
+    throw "GitHub CLI ('gh') is required to verify release provenance. Install it from https://cli.github.com/ and retry."
+}
+
 $binaryName = "EnvManager.exe"
 $architecture = if ([Environment]::Is64BitOperatingSystem) { "x64" } else { throw "Unsupported architecture: 32-bit Windows is not supported." }
 $assetName = "EnvManager-windows-$architecture.exe"
@@ -76,6 +82,11 @@ $temporaryPath = Join-Path ([IO.Path]::GetTempPath()) "$binaryName.$([guid]::New
 
 try {
     Invoke-WebRequest -Uri $downloadUrl -OutFile $temporaryPath -UseBasicParsing
+    & $gh.Source attestation verify $temporaryPath --repo $repository
+    if ($LASTEXITCODE -ne 0) {
+        throw "GitHub build provenance verification failed with exit code $LASTEXITCODE."
+    }
+
     Move-Item -Path $temporaryPath -Destination $destinationPath -Force
 }
 catch {

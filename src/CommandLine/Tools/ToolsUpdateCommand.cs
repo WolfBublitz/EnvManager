@@ -35,6 +35,8 @@ public sealed class ToolsUpdateCommand : Command
         };
 
         this.Add(toolNameArgument);
+        Option<bool> yesOption = new("--yes", "-y") { Description = "Run custom commands without prompting. Review the commands before using this option." };
+        this.Add(yesOption);
 
         this.SetAction((parseResult, cancellationToken) => CommandExecutor.RunAsync(async () =>
         {
@@ -58,7 +60,7 @@ public sealed class ToolsUpdateCommand : Command
             {
                 if (tool.InstallCommand is not null)
                 {
-                    await CustomToolCommand.RunAsync(tool.UpdateCommand, tool.Name, "update", cancellationToken).ConfigureAwait(false);
+                    await CustomToolCommand.RunAsync(tool.UpdateCommand, tool.Name, "update", parseResult.GetValue(yesOption), cancellationToken).ConfigureAwait(false);
                     ConsoleReporter.Success($"Updated tool '{tool.Name}'.");
                     continue;
                 }

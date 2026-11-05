@@ -13,7 +13,7 @@ namespace EnvManager.Configuration;
 
 /// <summary>
 /// Reads and writes <see cref="EnvironmentConfiguration"/> instances to and from the
-/// YAML <c>environment.yaml</c> file used to persist an environment's state.
+/// YAML <c>.EnvManager/config.yml</c> file used to persist an environment's state.
 /// </summary>
 public sealed class ConfigurationSerializer
 {
@@ -38,7 +38,7 @@ public sealed class ConfigurationSerializer
     /// Loads the environment configuration from the given file, returning an empty,
     /// named configuration when the file does not exist yet.
     /// </summary>
-    /// <param name="file">The <c>environment.yaml</c> file to read.</param>
+    /// <param name="file">The <c>.EnvManager/config.yml</c> file to read.</param>
     /// <param name="environmentName">The environment name to use when the file is missing.</param>
     public EnvironmentConfiguration Load(FileInfo file, string environmentName)
     {
@@ -58,7 +58,7 @@ public sealed class ConfigurationSerializer
     }
 
     /// <summary>Serializes and writes the given environment configuration to the given file.</summary>
-    /// <param name="file">The <c>environment.yaml</c> file to write.</param>
+    /// <param name="file">The <c>.EnvManager/config.yml</c> file to write.</param>
     /// <param name="configuration">The configuration to persist.</param>
     public void Save(FileInfo file, EnvironmentConfiguration configuration)
     {

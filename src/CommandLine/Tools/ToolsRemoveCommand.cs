@@ -28,8 +28,10 @@ public sealed class ToolsRemoveCommand : Command
         : base("remove", "Removes an existing tool or configuration.")
     {
         Argument<string> toolNameArgument = new("tool_name") { Description = "The name of the tool to remove." };
+        Option<bool> yesOption = new("--yes", "-y") { Description = "Run a custom command without prompting. Review the command before using this option." };
 
         this.Add(toolNameArgument);
+        this.Add(yesOption);
 
         this.SetAction((parseResult, cancellationToken) => CommandExecutor.RunAsync(async () =>
         {
@@ -43,7 +45,7 @@ public sealed class ToolsRemoveCommand : Command
 
             if (tool.InstallCommand is not null)
             {
-                await CustomToolCommand.RunAsync(tool.RemoveCommand, toolName, "remove", cancellationToken).ConfigureAwait(false);
+                await CustomToolCommand.RunAsync(tool.RemoveCommand, toolName, "remove", parseResult.GetValue(yesOption), cancellationToken).ConfigureAwait(false);
             }
             else
             {

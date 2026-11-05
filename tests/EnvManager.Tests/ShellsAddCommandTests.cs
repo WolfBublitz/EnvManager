@@ -29,7 +29,7 @@ public sealed class ShellsAddCommandTests
             await RunSuccessAsync(home, "git", $"--git-dir={gitDirectory}", "remote", "add", "origin", remote);
             File.WriteAllText(Path.Combine(home, ".bashrc"), "original");
 
-            await RunSuccessAsync(home, "dotnet", typeof(Program).Assembly.Location, "shells", "add", "bash");
+            await RunSuccessAsync(home, "dotnet", typeof(Program).Assembly.Location, "shells", "add", "bash", "--yes");
 
             string bashrc = await RunSuccessAsync(root.FullName, "git", $"--git-dir={remote}", "show", "main:.bashrc");
             string bashProfile = await RunSuccessAsync(root.FullName, "git", $"--git-dir={remote}", "show", "main:.bash_profile");
@@ -44,7 +44,7 @@ public sealed class ShellsAddCommandTests
             await RunSuccessAsync(home, "git", $"--git-dir={gitDirectory}", $"--work-tree={home}", "add", ".bashrc");
             File.WriteAllText(localBashrc, loader);
             await RunSuccessAsync(home, "git", $"--git-dir={gitDirectory}", "remote", "set-url", "origin", Path.Combine(root.FullName, "missing.git"));
-            await RunSuccessAsync(home, "dotnet", typeof(Program).Assembly.Location, "shells", "add", "bash");
+            await RunSuccessAsync(home, "dotnet", typeof(Program).Assembly.Location, "shells", "add", "bash", "--yes");
             await Assert.That(await RunSuccessAsync(home, "git", $"--git-dir={gitDirectory}", "show", ":.bashrc")).IsEqualTo("already staged");
             await Assert.That(await RunSuccessAsync(root.FullName, "git", $"--git-dir={remote}", "rev-parse", "main")).IsEqualTo(firstCommit);
             await RunSuccessAsync(home, "git", $"--git-dir={gitDirectory}", $"--work-tree={home}", "restore", "--staged", ".bashrc");
@@ -53,7 +53,7 @@ public sealed class ShellsAddCommandTests
             await RunSuccessAsync(home, "git", $"--git-dir={gitDirectory}", $"--work-tree={home}", "rm", "--cached", "--", ".bash_profile");
             await RunSuccessAsync(home, "git", $"--git-dir={gitDirectory}", $"--work-tree={home}", "commit", "-m", "Remove profile from tracking");
             await RunSuccessAsync(home, "git", $"--git-dir={gitDirectory}", $"--work-tree={home}", "push", "origin", "main");
-            await RunSuccessAsync(home, "dotnet", typeof(Program).Assembly.Location, "shells", "add", "bash");
+            await RunSuccessAsync(home, "dotnet", typeof(Program).Assembly.Location, "shells", "add", "bash", "--yes");
             await Assert.That(await RunSuccessAsync(root.FullName, "git", $"--git-dir={remote}", "show", "main:.bash_profile")).IsEqualTo(bashrc);
         }
         finally
@@ -75,7 +75,7 @@ public sealed class ShellsAddCommandTests
         {
             string home = Directory.CreateDirectory(Path.Combine(root.FullName, "home")).FullName;
             await RunSuccessAsync(home, "dotnet", typeof(Program).Assembly.Location, "init", "--environment", "main");
-            (int exitCode, string output) = await RunAsync(home, "dotnet", typeof(Program).Assembly.Location, "shells", "add", "bash");
+            (int exitCode, string output) = await RunAsync(home, "dotnet", typeof(Program).Assembly.Location, "shells", "add", "bash", "--yes");
             await Assert.That(exitCode).IsNotEqualTo(0);
             await Assert.That(output).Contains("No 'origin' remote is configured");
 
@@ -86,6 +86,33 @@ public sealed class ShellsAddCommandTests
             await RunSuccessAsync(home, "git", $"--git-dir={gitDirectory}", "remote", "add", "origin", remote);
             await RunSuccessAsync(home, "dotnet", typeof(Program).Assembly.Location, "push", "--yes");
             await Assert.That(await RunSuccessAsync(root.FullName, "git", $"--git-dir={remote}", "show", "main:.bashrc")).Contains("$HOME/.EnvManager/bash/");
+        }
+        finally
+        {
+            Directory.Delete(root.FullName, recursive: true);
+        }
+    }
+
+    [Test]
+    public async Task AddRequiresExplicitTrustBeforeChangingShellProfiles()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        DirectoryInfo root = CreateRoot();
+        try
+        {
+            string home = Directory.CreateDirectory(Path.Combine(root.FullName, "home")).FullName;
+            await RunSuccessAsync(home, "dotnet", typeof(Program).Assembly.Location, "init", "--environment", "main");
+
+            (int exitCode, string output) = await RunAsync(home, "dotnet", typeof(Program).Assembly.Location, "shells", "add", "bash");
+
+            await Assert.That(exitCode).IsEqualTo(0);
+            await Assert.That(output).Contains("Shell integration cancelled");
+            await Assert.That(File.Exists(Path.Combine(home, ".bashrc"))).IsFalse();
+            await Assert.That(File.ReadAllText(Path.Combine(home, ".EnvManager", "config.yml"))).Contains("shells: []");
         }
         finally
         {
@@ -116,6 +143,7 @@ public sealed class ShellsAddCommandTests
         ProcessStartInfo startInfo = new(executable)
         {
             WorkingDirectory = home,
+            RedirectStandardInput = true,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false,
@@ -131,6 +159,7 @@ public sealed class ShellsAddCommandTests
         }
 
         using Process process = Process.Start(startInfo) ?? throw new InvalidOperationException($"Could not start {executable}.");
+        process.StandardInput.Close();
         Task<string> output = process.StandardOutput.ReadToEndAsync();
         Task<string> error = process.StandardError.ReadToEndAsync();
         await process.WaitForExitAsync();

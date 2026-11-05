@@ -8,6 +8,7 @@ using System.CommandLine;
 
 using EnvManager.Configuration;
 using EnvManager.Exceptions;
+using EnvManager.Shells;
 
 namespace EnvManager.CommandLine.Variable;
 
@@ -35,6 +36,7 @@ public sealed class VariableUpdateCommand : Command
         {
             string name = parseResult.GetValue(nameArgument)!;
             string value = parseResult.GetValue(valueArgument)!;
+            ShellEnvironmentExporter.ValidateVariableName(name);
 
             EnvironmentRepository repository = EnvironmentRepository.OpenExisting();
             EnvironmentConfiguration configuration = await repository.LoadConfigurationAsync(cancellationToken).ConfigureAwait(false);
@@ -44,6 +46,7 @@ public sealed class VariableUpdateCommand : Command
                 throw new ConfigurationException($"Variable '{name}' does not exist in the current environment. Use 'variable set' to create it.");
             }
 
+            ConsoleReporter.Warning("Variable values are stored in plaintext configuration and may be committed or pushed. Do not store secrets.");
             configuration.Variables[name] = value;
 
             await repository.SaveConfigurationAsync(configuration, $"Update variable '{name}'.", cancellationToken).ConfigureAwait(false);

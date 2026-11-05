@@ -26,6 +26,9 @@ Options:
                             Defaults to ~/.local/bin.
   --help                    Display this help information.
 
+Requirements:
+  curl, gh (GitHub CLI with attestation verification support), and standard Unix tools.
+
 Environment variables:
   ENVMANAGER_VERSION        Equivalent to --version.
   ENVMANAGER_INSTALL_DIR    Equivalent to --install-dir.
@@ -84,6 +87,7 @@ case "$(uname -m)" in
 esac
 
 require_command curl
+require_command gh
 require_command mktemp
 require_command chmod
 
@@ -100,6 +104,11 @@ trap 'rm -f "$tmp_file"' EXIT
 info "Downloading ${asset_name} (${version})..."
 if ! curl --fail --location --silent --show-error "$download_url" --output "$tmp_file"; then
   fail "failed to download EnvManager from $download_url"
+fi
+
+info "Verifying GitHub build provenance..."
+if ! gh attestation verify "$tmp_file" --repo "$REPOSITORY"; then
+  fail "GitHub build provenance verification failed"
 fi
 
 mkdir -p "$install_dir"

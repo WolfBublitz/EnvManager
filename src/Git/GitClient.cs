@@ -30,7 +30,7 @@ namespace EnvManager.Git;
 /// <para>
 /// Per the EnvManager Git setup, the configuration history is kept in a <b>bare</b>
 /// repository (<see cref="GitDirectory"/>) while the actual tracked files (
-/// <c>environment.yaml</c> and any files added via <c>files add</c>) live directly in
+/// <c>.EnvManager/config.yml</c> and any files added via <c>files add</c>) live directly in
 /// <see cref="WorkingDirectory"/>, which is the user's home directory. Every git
 /// invocation therefore explicitly passes <c>--git-dir</c> and <c>--work-tree</c>
 /// instead of relying on a <c>.git</c> directory inside the working tree.
@@ -574,6 +574,8 @@ public sealed class GitClient
     /// <summary>Runs git with the given arguments in a specific directory and returns the captured result.</summary>
     private async Task<GitCommandResult> RunProcessAsync(DirectoryInfo directory, IReadOnlyList<string> arguments, CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
+
         ProcessStartInfo startInfo = new("git")
         {
             WorkingDirectory = directory.FullName,
@@ -602,10 +604,33 @@ public sealed class GitClient
             throw new GitCommandException($"git {string.Join(' ', arguments)}", exception);
         }
 
-        Task<string> standardOutput = process.StandardOutput.ReadToEndAsync(cancellationToken);
-        Task<string> standardError = process.StandardError.ReadToEndAsync(cancellationToken);
+        Task<string> standardOutput = process.StandardOutput.ReadToEndAsync(CancellationToken.None);
+        Task<string> standardError = process.StandardError.ReadToEndAsync(CancellationToken.None);
 
-        await process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            await process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            if (!process.HasExited)
+            {
+                try
+                {
+                    process.Kill(entireProcessTree: true);
+                }
+                catch (InvalidOperationException) when (process.HasExited)
+                {
+                }
+                catch (System.ComponentModel.Win32Exception exception)
+                {
+                    throw new IOException("Git was cancelled, but its process could not be terminated.", exception);
+                }
+            }
+
+            await process.WaitForExitAsync(CancellationToken.None).ConfigureAwait(false);
+            throw;
+        }
 
         return new GitCommandResult(
             process.ExitCode,

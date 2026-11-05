@@ -10,7 +10,7 @@ namespace EnvManager.Configuration;
 
 /// <summary>
 /// The full, serializable state of a single environment. Every environment is stored as
-/// one <c>environment.yaml</c> file at the root of its own branch in the EnvManager
+/// one <c>.EnvManager/config.yml</c> file in the home-directory work tree of its branch
 /// configuration repository.
 /// </summary>
 public sealed class EnvironmentConfiguration

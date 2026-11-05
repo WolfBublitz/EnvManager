@@ -73,36 +73,111 @@ internal sealed class ShellProfileInstaller
     {
         string normalizedName = this.NormalizeShellName(shellName);
         ShellProfile profile = this.GetProfile(normalizedName);
-        foreach (string relativePath in profile.ProfilePaths)
-        {
-            FileInfo profileFile = new(Path.Combine(this.homeDirectory.FullName, relativePath));
-
-            if (!profileFile.Exists || IsInstalledProfile(normalizedName, profile, File.ReadAllText(profileFile.FullName)))
-            {
-                continue;
-            }
-
-            FileInfo backupFile = this.GetBackupFile(normalizedName, relativePath);
-
-            if (backupFile.Exists)
-            {
-                throw new ConfigurationException($"Shell profile '{profileFile.FullName}' was modified after its original backup was created. Preserve or restore it before reinstalling shell integration.");
-            }
-
-            backupFile.Directory?.Create();
-            File.Copy(profileFile.FullName, backupFile.FullName);
-        }
-
-        Directory.CreateDirectory(Path.Combine(this.homeDirectory.FullName, ".EnvManager", normalizedName));
+        List<(FileInfo ProfileFile, bool Existed, byte[] OriginalContent, FileInfo? BackupFile)> profiles = [];
+        List<(FileInfo ProfileFile, string TemporaryFile)> stagedFiles = [];
+        List<FileInfo> createdBackups = [];
 
         foreach (string relativePath in profile.ProfilePaths)
         {
             FileInfo profileFile = new(Path.Combine(this.homeDirectory.FullName, relativePath));
-            profileFile.Directory?.Create();
-            File.WriteAllText(profileFile.FullName, profile.Content);
+            bool existed = profileFile.Exists;
+            byte[] originalContent = existed ? File.ReadAllBytes(profileFile.FullName) : [];
+            FileInfo? backupFile = null;
+
+            if (existed && !IsInstalledProfile(normalizedName, profile, File.ReadAllText(profileFile.FullName)))
+            {
+                backupFile = this.GetBackupFile(normalizedName, relativePath);
+                if (backupFile.Exists)
+                {
+                    throw new ConfigurationException($"Shell profile '{profileFile.FullName}' was modified after its original backup was created. Preserve or restore it before reinstalling shell integration.");
+                }
+            }
+
+            profiles.Add((profileFile, existed, originalContent, backupFile));
         }
 
-        return profile.ProfilePaths;
+        try
+        {
+            foreach ((FileInfo profileFile, _, _, _) in profiles)
+            {
+                profileFile.Directory?.Create();
+                string profileDirectory = profileFile.DirectoryName
+                    ?? throw new IOException($"Could not determine the profile directory for '{profileFile.FullName}'.");
+                string temporaryFile = Path.Combine(profileDirectory, $".{profileFile.Name}.{Guid.NewGuid():N}.tmp");
+                stagedFiles.Add((profileFile, temporaryFile));
+                File.WriteAllText(temporaryFile, profile.Content);
+            }
+
+            Directory.CreateDirectory(Path.Combine(this.homeDirectory.FullName, ".EnvManager", normalizedName));
+
+            foreach ((FileInfo profileFile, bool existed, _, FileInfo? backupFile) in profiles)
+            {
+                if (!existed || backupFile is null)
+                {
+                    continue;
+                }
+
+                backupFile.Directory?.Create();
+                File.Copy(profileFile.FullName, backupFile.FullName);
+                createdBackups.Add(backupFile);
+            }
+
+            foreach ((FileInfo profileFile, string temporaryFile) in stagedFiles)
+            {
+                File.Move(temporaryFile, profileFile.FullName, overwrite: true);
+            }
+
+            return profile.ProfilePaths;
+        }
+        catch (Exception exception)
+        {
+            List<Exception> rollbackFailures = [];
+            foreach ((FileInfo profileFile, bool existed, byte[] originalContent, _) in profiles)
+            {
+                try
+                {
+                    if (existed)
+                    {
+                        File.WriteAllBytes(profileFile.FullName, originalContent);
+                    }
+                    else if (profileFile.Exists)
+                    {
+                        profileFile.Delete();
+                    }
+                }
+                catch (Exception rollbackException)
+                {
+                    rollbackFailures.Add(rollbackException);
+                }
+            }
+
+            foreach (FileInfo backupFile in createdBackups)
+            {
+                try
+                {
+                    backupFile.Delete();
+                }
+                catch (Exception rollbackException)
+                {
+                    rollbackFailures.Add(rollbackException);
+                }
+            }
+
+            if (rollbackFailures.Count > 0)
+            {
+                rollbackFailures.Insert(0, exception);
+                throw new IOException("Shell profile installation failed and rollback was incomplete.", new AggregateException(rollbackFailures));
+            }
+
+            throw;
+        }
+        finally
+        {
+            foreach ((_, string temporaryFile) in stagedFiles)
+            {
+                File.Delete(temporaryFile);
+            }
+        }
     }
 
     /// <summary>Restores backed-up profile files or removes loader files created by EnvManager.</summary>

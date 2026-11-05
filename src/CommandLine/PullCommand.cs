@@ -71,6 +71,7 @@ public sealed class PullCommand : Command
             }
 
             await repository.Git.ApplyPullAsync(target, cancellationToken).ConfigureAwait(false);
+            await repository.RefreshShellEnvironmentAsync(cancellationToken).ConfigureAwait(false);
 
             ConsoleReporter.Success($"Pulled the latest changes for environment '{environmentName}'.");
         }));
