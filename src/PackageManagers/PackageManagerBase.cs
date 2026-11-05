@@ -95,9 +95,13 @@ public abstract class PackageManagerBase : IPackageManager
         {
             result = await ProcessRunner.RunAsync(executable, commandArguments, cancellationToken).ConfigureAwait(false);
         }
-        catch (Win32Exception exception) when (useSudo && exception.NativeErrorCode == 2)
+        catch (Win32Exception exception)
         {
-            throw new PackageManagerException($"Cannot {actionDescription} using '{this.Name}': sudo was not found. Install sudo or run EnvManager as root.", exception);
+            string reason = useSudo
+                ? "sudo was not found. Install sudo or run EnvManager as root."
+                : $"'{this.Executable}' is not installed or not available on PATH.";
+
+            throw new PackageManagerException($"Cannot {actionDescription} using '{this.Name}': {reason}", exception);
         }
 
         (int exitCode, string standardOutput, string standardError) = result;
