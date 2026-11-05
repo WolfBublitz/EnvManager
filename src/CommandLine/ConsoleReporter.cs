@@ -37,7 +37,11 @@ public static class ConsoleReporter
     /// <summary>Writes a formatted exception using Spectre.Console.</summary>
     /// <param name="exception">The exception to render.</param>
     public static void Exception(Exception exception)
-        => AnsiConsole.WriteException(exception, ExceptionFormats.ShortenEverything);
+        => AnsiConsole.Write(new Panel(new Text(exception.ToString()))
+        {
+            Border = BoxBorder.Rounded,
+            Header = new PanelHeader(" Exception "),
+        });
 
     /// <summary>Writes a yellow warning message.</summary>
     /// <param name="message">The message to render. Treated as plain text, not markup.</param>
