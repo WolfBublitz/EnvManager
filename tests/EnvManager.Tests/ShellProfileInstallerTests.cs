@@ -65,6 +65,7 @@ public sealed class ShellProfileInstallerTests
 
             await Assert.That(File.ReadAllText(bashrc)).IsEqualTo("original bashrc");
             await Assert.That(File.Exists(Path.Combine(home.FullName, ".EnvManager", "backups", "shell-profiles", "bash", ".bashrc"))).IsFalse();
+            await Assert.That(File.Exists(Path.Combine(home.FullName, ".EnvManager", "bash", "00_Profile.sh"))).IsFalse();
             await Assert.That(Directory.Exists(Path.Combine(home.FullName, ".bash_profile"))).IsTrue();
         }
         finally
