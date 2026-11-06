@@ -100,7 +100,7 @@ public sealed class SettingsCommandTests
     }
 
     [Test]
-    public async Task RemoveDeletesSettingByProvidedKey()
+    public async Task RemoveIsNotAvailableAndDoesNotChangeSettings()
     {
         DirectoryInfo root = CreateRoot();
         try
@@ -116,61 +116,18 @@ public sealed class SettingsCommandTests
                 typeof(Program).Assembly.Location,
                 "settings",
                 "edit");
-            await RunSuccessAsync(home, "dotnet", typeof(Program).Assembly.Location, "settings", "remove", "editor");
-
-            await AssertConfigurationAsync(File.ReadAllText(configPath), null);
-        }
-        finally
-        {
-            Directory.Delete(root.FullName, recursive: true);
-        }
-    }
-
-    [Test]
-    public async Task RemovePromptsForKeyWhenOmitted()
-    {
-        DirectoryInfo root = CreateRoot();
-        try
-        {
-            string home = Directory.CreateDirectory(Path.Combine(root.FullName, "home")).FullName;
-            string configPath = Path.Combine(home, ".EnvManager", "config.yml");
-
-            await InitializeHomeAsync(home);
-            await RunSuccessWithInputAsync(
+            (int exitCode, string output) = await RunWithInputAsync(
                 home,
-                "editor\nVisual Studio Code\n",
+                string.Empty,
                 "dotnet",
                 typeof(Program).Assembly.Location,
                 "settings",
-                "edit");
-            await RunSuccessWithInputAsync(
-                home,
-                "editor\n",
-                "dotnet",
-                typeof(Program).Assembly.Location,
-                "settings",
-                "remove");
+                "remove",
+                "editor");
 
-            await AssertConfigurationAsync(File.ReadAllText(configPath), null);
-        }
-        finally
-        {
-            Directory.Delete(root.FullName, recursive: true);
-        }
-    }
-
-    [Test]
-    public async Task RemoveWithoutKeyAndWithoutSettingsDoesNotPromptOrFail()
-    {
-        DirectoryInfo root = CreateRoot();
-        try
-        {
-            string home = Directory.CreateDirectory(Path.Combine(root.FullName, "home")).FullName;
-
-            await InitializeHomeAsync(home);
-            string output = await RunSuccessAsync(home, "dotnet", typeof(Program).Assembly.Location, "settings", "remove");
-
-            await Assert.That(output).Contains("No settings are configured");
+            await Assert.That(exitCode).IsNotEqualTo(0);
+            await Assert.That(output).Contains("remove");
+            await AssertConfigurationAsync(File.ReadAllText(configPath), "Visual Studio Code");
         }
         finally
         {

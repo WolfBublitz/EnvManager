@@ -177,7 +177,6 @@ EnvManager variable list                                    # List all variables
 
 ```bash
 EnvManager settings edit                              # Select an available key and edit its value
-EnvManager settings remove [setting_key]              # Remove a setting, prompting when omitted
 EnvManager settings list                              # List all configured settings
 ```
 
