@@ -23,6 +23,7 @@ public sealed class FilesCommand : Command
         : base("files", "Manage files and configurations in the environment repository.")
     {
         this.Add(new FilesAddCommand());
+        this.Add(new FilesEditCommand());
         this.Add(new FilesRemoveCommand());
         this.Add(new FilesListCommand());
     }
