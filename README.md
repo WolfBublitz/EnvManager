@@ -328,6 +328,11 @@ the current schema is available from the
 [latest GitHub release](https://github.com/WolfBublitz/EnvManager/releases/latest/download/config.schema.1.0.0.yaml).
 The YAML file is part of the checked-out home work tree at `.EnvManager/config.yml`.
 
+## Wiki
+
+See the [EnvManager wiki home](docs/wiki/Home.md) for a concise overview and the
+[user manual](docs/wiki/Manual.md) for installation, setup, and common workflows.
+
 ## Development
 
 - Language: C# / .NET 11
