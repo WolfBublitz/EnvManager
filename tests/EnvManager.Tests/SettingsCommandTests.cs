@@ -14,41 +14,27 @@ namespace EnvManager.Tests;
 public sealed class SettingsCommandTests
 {
     [Test]
-    public async Task SetPersistsArbitraryStringSettingsToCurrentBranchAndPreservesExistingConfiguration()
+    public async Task EditPromptsForSupportedKeyAndPersistsValue()
     {
         DirectoryInfo root = CreateRoot();
         try
         {
             string home = Directory.CreateDirectory(Path.Combine(root.FullName, "home")).FullName;
-            string gitDirectory = Path.Combine(home, ".EnvManager", "repo");
             string configPath = Path.Combine(home, ".EnvManager", "config.yml");
-            string settingValue = "  value: # literal\nsecond line  ";
+            string settingValue = "Visual Studio Code";
 
-            await RunSuccessAsync(home, "dotnet", typeof(Program).Assembly.Location, "init", "--environment", "main");
-            await RunSuccessAsync(home, "dotnet", typeof(Program).Assembly.Location, "variable", "set", "EXISTING", "kept");
-            await RunSuccessAsync(home, "dotnet", typeof(Program).Assembly.Location, "settings", "set", "editor.theme", "initial theme");
-            await RunSuccessAsync(home, "dotnet", typeof(Program).Assembly.Location, "settings", "set", "editor.mode", "compact");
-            await RunSuccessAsync(home, "dotnet", typeof(Program).Assembly.Location, "settings", "set", "editor.theme", settingValue);
-
-            string currentBranch = await RunSuccessAsync(
+            await InitializeHomeAsync(home);
+            await RunSuccessWithInputAsync(
                 home,
-                "git",
-                $"--git-dir={gitDirectory}",
-                $"--work-tree={home}",
-                "branch",
-                "--show-current");
+                "editor\n" + settingValue + "\n",
+                "dotnet",
+                typeof(Program).Assembly.Location,
+                "settings",
+                "edit");
+
             string yamlOnDisk = File.ReadAllText(configPath);
-            string yamlInCurrentBranch = await RunSuccessAsync(
-                home,
-                "git",
-                $"--git-dir={gitDirectory}",
-                $"--work-tree={home}",
-                "show",
-                "HEAD:.EnvManager/config.yml");
 
-            await Assert.That(currentBranch).IsEqualTo("main");
             await AssertConfigurationAsync(yamlOnDisk, settingValue);
-            await AssertConfigurationAsync(yamlInCurrentBranch, settingValue);
         }
         finally
         {
@@ -56,7 +42,143 @@ public sealed class SettingsCommandTests
         }
     }
 
-    private static async Task AssertConfigurationAsync(string yaml, string settingValue)
+    [Test]
+    public async Task EditRejectsUnsupportedKeySelection()
+    {
+        DirectoryInfo root = CreateRoot();
+        try
+        {
+            string home = Directory.CreateDirectory(Path.Combine(root.FullName, "home")).FullName;
+            string configPath = Path.Combine(home, ".EnvManager", "config.yml");
+
+            await InitializeHomeAsync(home);
+            (int exitCode, string output) = await RunWithInputAsync(
+                home,
+                "editor.theme\n",
+                "dotnet",
+                typeof(Program).Assembly.Location,
+                "settings",
+                "edit");
+
+            await Assert.That(exitCode).IsNotEqualTo(0);
+            await Assert.That(output).Contains("editor");
+            await AssertConfigurationAsync(File.ReadAllText(configPath), null);
+        }
+        finally
+        {
+            Directory.Delete(root.FullName, recursive: true);
+        }
+    }
+
+    [Test]
+    public async Task ListShowsConfiguredSettingKeysAndValues()
+    {
+        DirectoryInfo root = CreateRoot();
+        try
+        {
+            string home = Directory.CreateDirectory(Path.Combine(root.FullName, "home")).FullName;
+            const string settingValue = "Visual Studio Code";
+
+            await InitializeHomeAsync(home);
+            await RunSuccessWithInputAsync(
+                home,
+                "editor\n" + settingValue + "\n",
+                "dotnet",
+                typeof(Program).Assembly.Location,
+                "settings",
+                "edit");
+
+            string output = await RunSuccessAsync(home, "dotnet", typeof(Program).Assembly.Location, "settings", "list");
+
+            await Assert.That(output).Contains("editor");
+            await Assert.That(output).Contains(settingValue);
+        }
+        finally
+        {
+            Directory.Delete(root.FullName, recursive: true);
+        }
+    }
+
+    [Test]
+    public async Task RemoveDeletesSettingByProvidedKey()
+    {
+        DirectoryInfo root = CreateRoot();
+        try
+        {
+            string home = Directory.CreateDirectory(Path.Combine(root.FullName, "home")).FullName;
+            string configPath = Path.Combine(home, ".EnvManager", "config.yml");
+
+            await InitializeHomeAsync(home);
+            await RunSuccessWithInputAsync(
+                home,
+                "editor\nVisual Studio Code\n",
+                "dotnet",
+                typeof(Program).Assembly.Location,
+                "settings",
+                "edit");
+            await RunSuccessAsync(home, "dotnet", typeof(Program).Assembly.Location, "settings", "remove", "editor");
+
+            await AssertConfigurationAsync(File.ReadAllText(configPath), null);
+        }
+        finally
+        {
+            Directory.Delete(root.FullName, recursive: true);
+        }
+    }
+
+    [Test]
+    public async Task RemovePromptsForKeyWhenOmitted()
+    {
+        DirectoryInfo root = CreateRoot();
+        try
+        {
+            string home = Directory.CreateDirectory(Path.Combine(root.FullName, "home")).FullName;
+            string configPath = Path.Combine(home, ".EnvManager", "config.yml");
+
+            await InitializeHomeAsync(home);
+            await RunSuccessWithInputAsync(
+                home,
+                "editor\nVisual Studio Code\n",
+                "dotnet",
+                typeof(Program).Assembly.Location,
+                "settings",
+                "edit");
+            await RunSuccessWithInputAsync(
+                home,
+                "editor\n",
+                "dotnet",
+                typeof(Program).Assembly.Location,
+                "settings",
+                "remove");
+
+            await AssertConfigurationAsync(File.ReadAllText(configPath), null);
+        }
+        finally
+        {
+            Directory.Delete(root.FullName, recursive: true);
+        }
+    }
+
+    [Test]
+    public async Task RemoveWithoutKeyAndWithoutSettingsDoesNotPromptOrFail()
+    {
+        DirectoryInfo root = CreateRoot();
+        try
+        {
+            string home = Directory.CreateDirectory(Path.Combine(root.FullName, "home")).FullName;
+
+            await InitializeHomeAsync(home);
+            string output = await RunSuccessAsync(home, "dotnet", typeof(Program).Assembly.Location, "settings", "remove");
+
+            await Assert.That(output).Contains("No settings are configured");
+        }
+        finally
+        {
+            Directory.Delete(root.FullName, recursive: true);
+        }
+    }
+
+    private static async Task AssertConfigurationAsync(string yaml, string? settingValue)
     {
         ConfigurationDocument configuration = new DeserializerBuilder()
             .WithNamingConvention(CamelCaseNamingConvention.Instance)
@@ -64,10 +186,13 @@ public sealed class SettingsCommandTests
             .Build()
             .Deserialize<ConfigurationDocument>(yaml)!;
 
-        await Assert.That(configuration.Settings.Count).IsEqualTo(2);
-        await Assert.That(configuration.Settings.ContainsKey("editor.theme")).IsTrue();
-        await Assert.That(configuration.Settings["editor.theme"]).IsEqualTo(settingValue);
-        await Assert.That(configuration.Settings["editor.mode"]).IsEqualTo("compact");
+        await Assert.That(configuration.Settings.Count).IsEqualTo(settingValue is null ? 0 : 1);
+        if (settingValue is not null)
+        {
+            await Assert.That(configuration.Settings.ContainsKey("editor")).IsTrue();
+            await Assert.That(configuration.Settings["editor"]).IsEqualTo(settingValue);
+        }
+
         await Assert.That(configuration.Variables["EXISTING"]).IsEqualTo("kept");
     }
 
@@ -78,9 +203,15 @@ public sealed class SettingsCommandTests
         return root;
     }
 
+    private static async Task InitializeHomeAsync(string home)
+    {
+        await RunSuccessAsync(home, "dotnet", typeof(Program).Assembly.Location, "init", "--environment", "main");
+        await RunSuccessAsync(home, "dotnet", typeof(Program).Assembly.Location, "variable", "set", "EXISTING", "kept");
+    }
+
     private static async Task<string> RunSuccessAsync(string home, string executable, params string[] arguments)
     {
-        (int exitCode, string output) = await RunAsync(home, executable, arguments);
+        (int exitCode, string output) = await RunWithInputAsync(home, string.Empty, executable, arguments);
         if (exitCode != 0)
         {
             throw new InvalidOperationException($"{executable} {string.Join(' ', arguments)} failed: {output}");
@@ -89,7 +220,26 @@ public sealed class SettingsCommandTests
         return output.TrimEnd();
     }
 
-    private static async Task<(int ExitCode, string Output)> RunAsync(string home, string executable, params string[] arguments)
+    private static async Task<string> RunSuccessWithInputAsync(
+        string home,
+        string standardInput,
+        string executable,
+        params string[] arguments)
+    {
+        (int exitCode, string output) = await RunWithInputAsync(home, standardInput, executable, arguments);
+        if (exitCode != 0)
+        {
+            throw new InvalidOperationException($"{executable} {string.Join(' ', arguments)} failed: {output}");
+        }
+
+        return output.TrimEnd();
+    }
+
+    private static async Task<(int ExitCode, string Output)> RunWithInputAsync(
+        string home,
+        string standardInput,
+        string executable,
+        params string[] arguments)
     {
         ProcessStartInfo startInfo = new(executable)
         {
@@ -110,6 +260,7 @@ public sealed class SettingsCommandTests
         }
 
         using Process process = Process.Start(startInfo) ?? throw new InvalidOperationException($"Could not start {executable}.");
+        await process.StandardInput.WriteAsync(standardInput);
         process.StandardInput.Close();
         Task<string> output = process.StandardOutput.ReadToEndAsync();
         Task<string> error = process.StandardError.ReadToEndAsync();
