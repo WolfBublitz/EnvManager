@@ -585,17 +585,15 @@ EnvManager allows you to manage environment variables efficiently. You can set, 
 
 ## Installation
 
-The installation shall be possible via shell script (Linux/macOS) or PowerShell script (Windows) that can be downloaded and executed. Both installers require the GitHub CLI (`gh`) with attestation-verification support. The installer shall:
+The installation shall be possible via shell script (Linux/macOS) or PowerShell script (Windows) that can be downloaded and executed. The Linux shell installer shall use `curl` and standard Unix tools without requiring GitHub CLI (`gh`) and shall not verify release provenance. The macOS shell installer and Windows PowerShell installer shall require GitHub CLI (`gh`) with attestation-verification support. The installers shall:
 
 - download the latest EnvManager executable for the respective operating system
 - place it in a directory included in the system's PATH
 - make the script executable
-- verify the GitHub build-provenance attestation for the downloaded release asset before replacing the installed executable
-- require GitHub CLI (`gh`) with attestation-verification support and fail closed when verification fails
 
 The release workflow shall run the TUnit test suite before publishing AOT binaries and shall
-attest each release asset using GitHub build provenance. Installers must verify the asset's
-attestation for this repository before installation.
+attest each release asset using GitHub build provenance. The macOS and Windows installers
+shall verify the asset's attestation for this repository before installation.
 
 ### Download Url
 

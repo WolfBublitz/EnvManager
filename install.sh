@@ -27,7 +27,9 @@ Options:
   --help                    Display this help information.
 
 Requirements:
-  curl, gh (GitHub CLI with attestation verification support), and standard Unix tools.
+  Linux: bash, curl, and standard Unix tools.
+  macOS: bash, curl, gh (GitHub CLI with attestation verification support),
+         and standard Unix tools.
 
 Environment variables:
   ENVMANAGER_VERSION        Equivalent to --version.
@@ -87,7 +89,9 @@ case "$(uname -m)" in
 esac
 
 require_command curl
-require_command gh
+if [ "$os" = "macos" ]; then
+  require_command gh
+fi
 require_command mktemp
 require_command chmod
 
@@ -106,9 +110,11 @@ if ! curl --fail --location --silent --show-error "$download_url" --output "$tmp
   fail "failed to download EnvManager from $download_url"
 fi
 
-info "Verifying GitHub build provenance..."
-if ! gh attestation verify "$tmp_file" --repo "$REPOSITORY"; then
-  fail "GitHub build provenance verification failed"
+if [ "$os" = "macos" ]; then
+  info "Verifying GitHub build provenance..."
+  if ! gh attestation verify "$tmp_file" --repo "$REPOSITORY"; then
+    fail "GitHub build provenance verification failed"
+  fi
 fi
 
 mkdir -p "$install_dir"

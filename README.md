@@ -33,8 +33,9 @@ curl -fsSL https://raw.githubusercontent.com/WolfBublitz/EnvManager/refs/heads/m
 
 Downloads the latest `EnvManager` executable for the current Linux or macOS architecture,
 installs it to `$HOME/.local/bin`, makes it executable, and adds that directory to your
-shell PATH if needed. Install requires the [GitHub CLI](https://cli.github.com/) to verify
-the release's GitHub build-provenance attestation before installing the binary.
+shell PATH if needed. On Linux, the shell installer uses `curl` and standard Unix tools
+without verifying the release's GitHub build-provenance attestation. On macOS, it requires
+the [GitHub CLI](https://cli.github.com/) to verify the attestation before installing.
 
 ### Windows
 
