@@ -131,7 +131,6 @@ envmanager:
     update: # Updates an existing environment variable or configuration.
   settings:
     edit:   # Selects a supported key and adds or overwrites its value.
-    remove: # Removes a setting by key, prompting when the key is omitted.
     list:   # Lists all configured settings.
   tools:
     add:    # Adds a new tool or configuration.
@@ -255,7 +254,6 @@ Syntax:
 
 Subcommands:
   edit   Selects a supported key and adds or overwrites its value.
-  remove Removes an existing setting by key, prompting when omitted.
   list   Lists all configured settings.
 ```
 
@@ -263,14 +261,6 @@ Available setting keys:
 
 ```bash
 editor # The editor used by EnvManager.
-```
-
-##### Remove Subcommand
-
-```bash
-Syntax:
-  EnvManager settings remove [setting_key]
-  # When omitted, prompts for a configured setting key.
 ```
 
 ##### List Subcommand
