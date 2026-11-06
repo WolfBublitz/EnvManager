@@ -186,6 +186,8 @@ public sealed class SettingsCommandTests
             .Build()
             .Deserialize<ConfigurationDocument>(yaml)!;
 
+        await Assert.That(yaml.Split('\n')[0]).IsEqualTo("formatVersion: 1.0");
+        await Assert.That(configuration.FormatVersion).IsEqualTo("1.0");
         await Assert.That(configuration.Settings.Count).IsEqualTo(settingValue is null ? 0 : 1);
         if (settingValue is not null)
         {
@@ -270,6 +272,8 @@ public sealed class SettingsCommandTests
 
     private sealed class ConfigurationDocument
     {
+        public string FormatVersion { get; set; } = string.Empty;
+
         public Dictionary<string, string> Settings { get; set; } = [];
 
         public Dictionary<string, string> Variables { get; set; } = [];

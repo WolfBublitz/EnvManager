@@ -19,6 +19,9 @@ public sealed class EnvironmentConfiguration
     // │ public Property                                                                 │
     // └────────────────────────────────────────────────────────────────────────────────┘
 
+    /// <summary>Gets or sets the configuration file format version.</summary>
+    public string FormatVersion { get; set; } = "1.0";
+
     /// <summary>Gets or sets the name of the environment (matches the git branch name).</summary>
     public string Name { get; set; } = string.Empty;
 

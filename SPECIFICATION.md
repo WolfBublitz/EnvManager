@@ -87,6 +87,8 @@ The backend of the EnvManager uses a git repository to store and manage environm
 
 Inside each branch, the environment configuration is stored as `$HOME/.EnvManager/config.yml`. This is the canonical configuration file and is tracked in the bare repository's home-directory work tree. It shall be created if it does not exist. Other files are tracked at their paths relative to `$HOME`.
 
+The first field in `config.yml` is `formatVersion`, initially `1.0`. Configuration files without this field are treated as format version `1.0`. See the [configuration JSON Schema](schemas/config/config.schema.1.0.0.yaml) for the document schema and compatibility rules. Tagged releases publish each versioned schema file as a separate release asset.
+
 ### Git Setup
 
 The Git repository for storing environment configurations is initialized as a bare repository in the user's home directory under `.EnvManager/repo`.

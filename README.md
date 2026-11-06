@@ -310,16 +310,23 @@ environment branch. Other files added with `files add` are tracked in the bare r
 with paths relative to the home directory:
 
 ```yaml
+formatVersion: 1.0
 name: laptop
-shells: []
+shells:
+  - bash
 variables:
   EDITOR: nvim
+settings: {}
 tools:
-- name: git
-  packageManager: brew
-  version: null
+  - name: git
+    packageManager: brew
+    version: null
 ```
 
+See the [configuration JSON Schema](schemas/config/config.schema.1.0.0.yaml) for field and
+compatibility details. Tagged releases publish versioned schema files as separate assets;
+the current schema is available from the
+[latest GitHub release](https://github.com/WolfBublitz/EnvManager/releases/latest/download/config.schema.1.0.0.yaml).
 The YAML file is part of the checked-out home work tree at `.EnvManager/config.yml`.
 
 ## Development
