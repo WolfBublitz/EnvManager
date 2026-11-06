@@ -27,17 +27,61 @@ review changes to your setup like any other code.
 
 ### Linux / macOS
 
+The install script detects your operating system and CPU architecture, downloads the
+latest release, and installs `EnvManager` to `$HOME/.local/bin`. It requires `bash` and
+`curl`; on macOS, it also requires the [GitHub CLI](https://cli.github.com/) to verify
+the release's build provenance.
+
 ```bash
 curl -fsSL https://raw.githubusercontent.com/WolfBublitz/EnvManager/refs/heads/master/install.sh | bash
 ```
 
-Downloads the latest `EnvManager` executable for the current Linux or macOS architecture,
-installs it to `$HOME/.local/bin`, makes it executable, and adds that directory to your
-shell PATH if needed. On Linux, the shell installer uses `curl` and standard Unix tools
-without verifying the release's GitHub build-provenance attestation. On macOS, it requires
-the [GitHub CLI](https://cli.github.com/) to verify the attestation before installing.
+The installer makes the executable runnable and adds `$HOME/.local/bin` to your shell's
+PATH if needed. On Linux, the installer does not verify the release's GitHub
+build-provenance attestation.
+
+To download an executable manually, open the
+[latest release](https://github.com/WolfBublitz/EnvManager/releases/latest) and select the
+asset for your platform:
+
+| Platform | Release asset |
+| --- | --- |
+| Linux x64 | `EnvManager-linux-x64` |
+| Linux ARM64 | `EnvManager-linux-arm64` |
+| macOS Apple silicon (ARM64) | `EnvManager-macos-arm64` |
+
+For example, to download the Linux x64 executable and install it to `$HOME/.local/bin`:
+
+```bash
+mkdir -p "$HOME/.local/bin"
+curl -fL https://github.com/WolfBublitz/EnvManager/releases/latest/download/EnvManager-linux-x64 \
+  -o "$HOME/.local/bin/EnvManager"
+chmod 755 "$HOME/.local/bin/EnvManager"
+```
+
+Replace `EnvManager-linux-x64` with the release asset for your platform. If
+`$HOME/.local/bin` is not already on your PATH, add it to the Bash startup file used by
+your terminal. For Linux Bash, use `~/.bashrc`:
+
+```bash
+echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
+source ~/.bashrc
+```
+
+For a macOS Bash login shell, use `~/.bash_profile` instead:
+
+```bash
+echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bash_profile
+source ~/.bash_profile
+```
+
+The install script handles PATH setup automatically.
+On macOS, prefer the install script because it verifies the release's build provenance;
+manual downloads do not.
 
 ### Windows
+
+In PowerShell, install the latest release with:
 
 ```pwsh
 irm "https://raw.githubusercontent.com/WolfBublitz/EnvManager/refs/heads/master/install.ps1" -UseBasicParsing | iex
@@ -46,6 +90,28 @@ irm "https://raw.githubusercontent.com/WolfBublitz/EnvManager/refs/heads/master/
 Downloads `EnvManager.exe`, installs it to `$HOME\.local\bin` (creating the
 directory if needed), and adds that directory to your user `PATH`. The installer requires
 the GitHub CLI (`gh`) and verifies the release attestation before installing.
+
+### Enable Bash integration
+
+After installing EnvManager, initialize a local environment configuration or clone an
+existing one, then enable Bash:
+
+```bash
+# Start a new, local-only environment configuration:
+EnvManager init --environment laptop
+
+# Or, instead, clone your existing configuration:
+# EnvManager clone https://github.com/you/env-config.git --environment laptop
+
+EnvManager shells add bash
+```
+
+`shells add bash` asks you to trust the configuration because its scripts will run when
+Bash starts. It preserves existing Bash profile contents under
+`$HOME/.EnvManager/bash/00_Profile.sh` and installs profile loaders; open a new terminal
+to load the integration. If the configuration has no Git remote, the changes are
+committed locally and can be pushed after you configure one. See [Shells](#shells) for
+details about migrated profiles and shell scripts.
 
 ### Installer options
 
