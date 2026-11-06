@@ -11,6 +11,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
+using EnvManager.CommandLine;
 using EnvManager.Exceptions;
 using EnvManager.Git;
 using EnvManager.Shells;
@@ -150,7 +151,11 @@ public sealed class EnvironmentRepository
     /// <param name="cancellationToken">A token to cancel the operation.</param>
     public async Task SaveConfigurationAsync(EnvironmentConfiguration configuration, string commitMessage, CancellationToken cancellationToken = default)
     {
-        this.serializer.Save(EnvManagerPaths.EnvironmentFile, configuration);
+        if (this.serializer.Save(EnvManagerPaths.EnvironmentFile, configuration))
+        {
+            ConsoleReporter.Info("Updated the configuration schema reference in config.yml.");
+        }
+
         ShellEnvironmentExporter.Synchronize(configuration, EnvManagerPaths.HomeDirectory, OperatingSystem.IsWindows());
 
         await this.Git.AddAsync(EnvManagerPaths.EnvironmentFileRelativePath, cancellationToken).ConfigureAwait(false);

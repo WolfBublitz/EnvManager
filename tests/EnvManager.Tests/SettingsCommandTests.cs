@@ -13,6 +13,9 @@ namespace EnvManager.Tests;
 
 public sealed class SettingsCommandTests
 {
+    private const string SchemaReference = "# yaml-language-server: $schema=https://github.com/WolfBublitz/EnvManager/releases/download/1.0.0-preview.6/config.schema.1.0.0.yaml";
+    private const string SchemaUpdateMessage = "Updated the configuration schema reference in config.yml.";
+
     [Test]
     public async Task EditPromptsForSupportedKeyAndPersistsValue()
     {
@@ -24,7 +27,7 @@ public sealed class SettingsCommandTests
             string settingValue = "Visual Studio Code";
 
             await InitializeHomeAsync(home);
-            await RunSuccessWithInputAsync(
+            string output = await RunSuccessWithInputAsync(
                 home,
                 "editor\n" + settingValue + "\n",
                 "dotnet",
@@ -32,9 +35,86 @@ public sealed class SettingsCommandTests
                 "settings",
                 "edit");
 
+            await Assert.That(output).DoesNotContain(SchemaUpdateMessage);
             string yamlOnDisk = File.ReadAllText(configPath);
 
             await AssertConfigurationAsync(yamlOnDisk, settingValue);
+        }
+        finally
+        {
+            Directory.Delete(root.FullName, recursive: true);
+        }
+    }
+
+    [Test]
+    public async Task InitReportsWhenItAddsSchemaReference()
+    {
+        DirectoryInfo root = CreateRoot();
+        try
+        {
+            string home = Directory.CreateDirectory(Path.Combine(root.FullName, "home")).FullName;
+
+            string output = await RunSuccessAsync(
+                home,
+                "dotnet",
+                typeof(Program).Assembly.Location,
+                "init",
+                "--environment",
+                "main");
+
+            await Assert.That(output).Contains(SchemaUpdateMessage);
+            await Assert.That(File.ReadAllText(Path.Combine(home, ".EnvManager", "config.yml"))).Contains(SchemaReference);
+        }
+        finally
+        {
+            Directory.Delete(root.FullName, recursive: true);
+        }
+    }
+
+    [Test]
+    public async Task SaveReportsWhenSchemaReferenceIsMissingOrOutdated()
+    {
+        DirectoryInfo root = CreateRoot();
+        try
+        {
+            string home = Directory.CreateDirectory(Path.Combine(root.FullName, "home")).FullName;
+            string configPath = Path.Combine(home, ".EnvManager", "config.yml");
+
+            await InitializeHomeAsync(home);
+
+            string currentYaml = File.ReadAllText(configPath);
+            File.WriteAllText(configPath, currentYaml.Replace(SchemaReference + "\n", string.Empty, StringComparison.Ordinal));
+            string output = await RunSuccessWithInputAsync(
+                home,
+                "editor\nVisual Studio Code\n",
+                "dotnet",
+                typeof(Program).Assembly.Location,
+                "settings",
+                "edit");
+            await Assert.That(output).Contains(SchemaUpdateMessage);
+            await Assert.That(File.ReadAllText(configPath)).Contains(SchemaReference);
+
+            currentYaml = File.ReadAllText(configPath);
+            File.WriteAllText(
+                configPath,
+                currentYaml.Replace(SchemaReference, "# yaml-language-server: $schema=https://example.com/old-schema.yaml", StringComparison.Ordinal));
+            output = await RunSuccessWithInputAsync(
+                home,
+                "editor\nVisual Studio Code\n",
+                "dotnet",
+                typeof(Program).Assembly.Location,
+                "settings",
+                "edit");
+            await Assert.That(output).Contains(SchemaUpdateMessage);
+
+            output = await RunSuccessWithInputAsync(
+                home,
+                "editor\nVisual Studio Code\n",
+                "dotnet",
+                typeof(Program).Assembly.Location,
+                "settings",
+                "edit");
+            await Assert.That(output).DoesNotContain(SchemaUpdateMessage);
         }
         finally
         {
@@ -143,7 +223,9 @@ public sealed class SettingsCommandTests
             .Build()
             .Deserialize<ConfigurationDocument>(yaml)!;
 
-        await Assert.That(yaml.Split('\n')[0]).IsEqualTo("formatVersion: 1.0");
+        await Assert.That(yaml).Contains(
+            "# yaml-language-server: $schema=https://github.com/WolfBublitz/EnvManager/releases/download/1.0.0-preview.6/config.schema.1.0.0.yaml");
+        await Assert.That(yaml.Split('\n')[1]).IsEqualTo("formatVersion: 1.0");
         await Assert.That(configuration.FormatVersion).IsEqualTo("1.0");
         await Assert.That(configuration.Settings.Count).IsEqualTo(settingValue is null ? 0 : 1);
         if (settingValue is not null)
