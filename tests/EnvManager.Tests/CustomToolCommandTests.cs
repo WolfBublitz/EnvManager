@@ -1,6 +1,7 @@
 using System;
 using System.Diagnostics;
 using System.IO;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
 using TUnit.Assertions;
@@ -55,34 +56,34 @@ public sealed class CustomToolCommandTests
             await RunSuccessAsync(root.FullName, "init", "--environment", "main");
             (int failedInstall, string installOutput) = await RunAsync(root.FullName, "tools", "add", "bad", "--yes", "--install-command", exit7);
             await Assert.That(failedInstall).IsNotEqualTo(0);
-            await Assert.That(installOutput).Contains("exit code 7");
+            await Assert.That(NormalizeConsoleOutput(installOutput)).Contains("exit code 7");
             await Assert.That(await RunSuccessAsync(root.FullName, "tools", "list")).Contains("No tools are tracked");
 
             await RunSuccessAsync(root.FullName, "tools", "add", "example", "--yes", "--install-command", successfulCommand, "--remove-command", exit8);
             (int failedUpdate, string updateOutput) = await RunAsync(root.FullName, "tools", "update", "example", "--yes");
             await Assert.That(failedUpdate).IsNotEqualTo(0);
-            await Assert.That(updateOutput).Contains("No update command");
+            await Assert.That(NormalizeConsoleOutput(updateOutput)).Contains("No update command");
             (int failedRemove, string removeOutput) = await RunAsync(root.FullName, "tools", "remove", "example", "--yes");
             await Assert.That(failedRemove).IsNotEqualTo(0);
-            await Assert.That(removeOutput).Contains("exit code 8");
+            await Assert.That(NormalizeConsoleOutput(removeOutput)).Contains("exit code 8");
             await Assert.That(await RunSuccessAsync(root.FullName, "tools", "list")).Contains("example");
 
             await RunSuccessAsync(root.FullName, "tools", "add", "no-remove", "--yes", "--install-command", successfulCommand);
             (int missingRemove, string missingOutput) = await RunAsync(root.FullName, "tools", "remove", "no-remove", "--yes");
             await Assert.That(missingRemove).IsNotEqualTo(0);
-            await Assert.That(missingOutput).Contains("No remove command");
+            await Assert.That(NormalizeConsoleOutput(missingOutput)).Contains("No remove command");
             await Assert.That(await RunSuccessAsync(root.FullName, "tools", "list")).Contains("no-remove");
 
             (int invalid, string invalidOutput) = await RunAsync(root.FullName, "tools", "add", "other",
                 "--install-command", successfulCommand, "--version", "1");
             await Assert.That(invalid).IsNotEqualTo(0);
-            await Assert.That(invalidOutput).Contains("--install-command cannot be combined");
+            await Assert.That(NormalizeConsoleOutput(invalidOutput)).Contains("--install-command cannot be combined");
             (int empty, string emptyOutput) = await RunAsync(root.FullName, "tools", "add", "other", "--install-command", " ");
             await Assert.That(empty).IsNotEqualTo(0);
-            await Assert.That(emptyOutput).Contains("cannot be empty");
+            await Assert.That(NormalizeConsoleOutput(emptyOutput)).Contains("cannot be empty");
             (int orphan, string orphanOutput) = await RunAsync(root.FullName, "tools", "add", "other", "--update-command", successfulCommand);
             await Assert.That(orphan).IsNotEqualTo(0);
-            await Assert.That(orphanOutput).Contains("require --install-command");
+            await Assert.That(NormalizeConsoleOutput(orphanOutput)).Contains("require --install-command");
         }
         finally
         {
@@ -124,6 +125,12 @@ public sealed class CustomToolCommandTests
         DirectoryInfo root = new(Path.Combine(Path.GetTempPath(), $"EnvManager-CustomToolTests-{Guid.NewGuid():N}"));
         root.Create();
         return root;
+    }
+
+    private static string NormalizeConsoleOutput(string output)
+    {
+        string normalizedOutput = Regex.Replace(output, "[│╭╮╰╯─]", " ");
+        return Regex.Replace(normalizedOutput, @"\s+", " ");
     }
 
     private static async Task<string> RunSuccessAsync(string home, params string[] arguments)
