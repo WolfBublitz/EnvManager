@@ -28,6 +28,9 @@ public sealed class EnvironmentConfiguration
     /// <summary>Gets or sets the user-scoped environment variables managed for this environment.</summary>
     public Dictionary<string, string> Variables { get; set; } = [];
 
+    /// <summary>Gets or sets the settings managed for this environment.</summary>
+    public Dictionary<string, string> Settings { get; set; } = [];
+
     /// <summary>Gets or sets the tools managed for this environment.</summary>
     public List<ToolDefinition> Tools { get; set; } = [];
 }

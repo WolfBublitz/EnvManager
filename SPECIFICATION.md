@@ -84,6 +84,8 @@ The backend of the EnvManager uses a git repository to store and manage environm
 
 - Each environment configuration is stored as a separate branch.
 - The branch name corresponds to the environment name (e.g., `laptop`, `office`, `server`).
+- The `settings.editor` setting stores the text editor command used by `files edit`.
+- When `settings.editor` is missing, `files edit` asks for the command and saves it in the current environment configuration.
 
 Inside each branch, the environment configuration is stored as `$HOME/.EnvManager/config.yml`. This is the canonical configuration file and is tracked in the bare repository's home-directory work tree. It shall be created if it does not exist. Other files are tracked at their paths relative to `$HOME`.
 
@@ -140,6 +142,7 @@ envmanager:
     list:   # Lists shells configured for the current environment.
   files:
     add:    # Adds a new file or configuration (to the repository)
+    edit:   # Opens a tracked file in the configured text editor
     remove: # Removes an existing file or configuration (from the repository)
     list:   # Lists all files and configurations (in the repository).
   push:     # Pushes the current environment configuration to the remote repository.

@@ -246,6 +246,7 @@ after you have reviewed the repository.
 
 ```bash
 EnvManager files add <file_name>      # Track a file from your home directory
+EnvManager files edit                 # Open a tracked file in your text editor
 EnvManager files remove <file_name>   # Stop tracking a file (left in place on disk)
 EnvManager files list                 # List all files tracked for the current environment
 ```
@@ -258,6 +259,11 @@ remote; removal leaves the local file in place. Run `EnvManager push` when you a
 ready to commit and publish the staged changes.
 Other commands that commit changes, including configuration updates and `shells add`,
 can also include already staged files in their commits.
+
+`files edit` prompts you to select a tracked file, then opens it with the editor command
+in `settings.editor` in `.EnvManager/config.yml`. If `editor` is not set, the command
+prompts for the editor command and saves it to the current environment configuration.
+Editor commands may include arguments, for example `code --wait`.
 
 ### Synchronizing environments
 
@@ -301,6 +307,8 @@ name: laptop
 shells: []
 variables:
   EDITOR: nvim
+settings:
+  editor: code --wait
 tools:
 - name: git
   packageManager: brew
