@@ -1,0 +1,83 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+title: EnvManager environment configuration
+description: >-
+  YAML mapping stored in .EnvManager/config.yml. Writers place formatVersion
+  first, followed by name, shells, variables, settings, and tools. Mapping order
+  is not significant to readers. Readers treat an absent formatVersion as 1.0
+  for legacy files and ignore unrecognized properties.
+type: object
+required:
+  - name
+properties:
+  formatVersion:
+    title: Format version
+    description: >-
+      Current version is 1.0. Omitted only in legacy files, which are interpreted
+      as version 1.0. Other versions are not currently validated by EnvManager.
+    default: "1.0"
+    oneOf:
+      - const: "1.0"
+      - const: 1.0
+  name:
+    type: string
+    description: Environment name, corresponding to its Git branch.
+  shells:
+    type: array
+    description: Shell identifiers configured for the environment.
+    items:
+      type: string
+      enum:
+        - bash
+        - zsh
+        - fish
+        - powershell
+        - cmd
+  variables:
+    type: object
+    description: >-
+      Environment variable names and plaintext values. Do not store secrets here.
+    additionalProperties:
+      type: string
+  settings:
+    type: object
+    description: EnvManager setting keys and values.
+    additionalProperties:
+      type: string
+  tools:
+    type: array
+    description: Tools managed by the environment.
+    items:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          description: Tool or package name.
+        packageManager:
+          type:
+            - string
+            - "null"
+          description: Package manager used for the tool, or null when unspecified.
+        version:
+          type:
+            - string
+            - "null"
+          description: Requested tool version, or null for the latest version.
+        installCommand:
+          type:
+            - string
+            - "null"
+          description: Custom command used to install the tool, when configured.
+        updateCommand:
+          type:
+            - string
+            - "null"
+          description: Custom command used to update the tool, when configured.
+        removeCommand:
+          type:
+            - string
+            - "null"
+          description: Custom command used to uninstall the tool, when configured.
+      additionalProperties: true
+additionalProperties: true
