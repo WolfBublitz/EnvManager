@@ -33,9 +33,11 @@ public sealed class ShellsAddCommandTests
 
             string bashrc = await RunSuccessAsync(root.FullName, "git", $"--git-dir={remote}", "show", "main:.bashrc");
             string bashProfile = await RunSuccessAsync(root.FullName, "git", $"--git-dir={remote}", "show", "main:.bash_profile");
+            string migratedProfile = await RunSuccessAsync(root.FullName, "git", $"--git-dir={remote}", "show", "main:.EnvManager/bash/00_Profile.sh");
             await Assert.That(bashrc).Contains("$HOME/.EnvManager/bash/");
             await Assert.That(bashProfile).IsEqualTo(bashrc);
-            await Assert.That(File.ReadAllText(Path.Combine(home, ".EnvManager", "backups", "shell-profiles", "bash", ".bashrc"))).IsEqualTo("original");
+            await Assert.That(migratedProfile).IsEqualTo("original");
+            await Assert.That(File.Exists(Path.Combine(home, ".EnvManager", "backups", "shell-profiles", "bash", ".bashrc"))).IsFalse();
             string firstCommit = await RunSuccessAsync(root.FullName, "git", $"--git-dir={remote}", "rev-parse", "main");
 
             string localBashrc = Path.Combine(home, ".bashrc");

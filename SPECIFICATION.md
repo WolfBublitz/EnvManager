@@ -444,7 +444,7 @@ Possible shells include:
 | powershell | Linux, macOS, Windows |
 | cmd        | Windows               |
 
-Use `shells add <shell>` to install a loader and back up any existing profile under `$HOME/.EnvManager/backups/shell-profiles`. Use `shells remove <shell>` to restore the original profile files when the installed loader has not been modified. Installation shall stage profile replacements and roll back all changed profiles if any step fails. Shell loaders execute scripts from the environment repository; review and trust repository contents before enabling integration.
+Use `shells add <shell>` to install a loader and move any existing profile contents into `$HOME/.EnvManager/<shell>/00_Profile` with the shell's corresponding script extension. For bash and zsh use `.sh`, for fish `.fish`, for PowerShell `.ps1`, and for CMD `.cmd`. The migrated profile shall not be copied to the shell-profile backup directory. `shells remove <shell>` shall remove unmodified loader files while leaving the migrated profile in the shell directory. Installation shall stage profile replacements and the migrated profile, then roll back all changed files if any step fails. Shell loaders execute scripts from the environment repository; review and trust repository contents before enabling integration.
 
 When a loader profile is not tracked in the current environment, `shells add` shall
 commit it and push the current branch to `origin`. Existing tracked profiles shall not
@@ -454,7 +454,7 @@ later `push`; pushing also publishes any earlier local commits.
 
 #### Bash
 
-For bash the existing profile files (e.g., `~/.bashrc`, `~/.bash_profile`) shall be replaced by:
+For bash the existing profile files (e.g., `~/.bashrc`, `~/.bash_profile`) shall be moved into `$HOME/.EnvManager/bash/00_Profile.sh` and replaced by:
 
 ```bash
 export PATH="$HOME/.local/bin:$PATH"
@@ -464,11 +464,9 @@ for file in "$HOME/.EnvManager/bash/"*.sh; do
 done
 ```
 
-The original profile files shall be backed up before being replaced.
-
 #### Zsh
 
-For zsh the existing profile files (e.g., `~/.zshrc`, `~/.zprofile`) shall be replaced by:
+For zsh the existing profile files (e.g., `~/.zshrc`, `~/.zprofile`) shall be moved into `$HOME/.EnvManager/zsh/00_Profile.sh` and replaced by:
 
 ```bash
 export PATH="$HOME/.local/bin:$PATH"
@@ -478,11 +476,9 @@ for file in "$HOME/.EnvManager/zsh/"*.sh; do
 done
 ```
 
-The original profile files shall be backed up before being replaced.
-
 #### Fish
 
-For fish the existing profile files (e.g., `~/.config/fish/config.fish`) shall be replaced by:
+For fish the existing profile file (e.g., `~/.config/fish/config.fish`) shall be moved into `$HOME/.EnvManager/fish/00_Profile.fish` and replaced by:
 
 ```fish
 set -gx PATH "$HOME/.local/bin" $PATH
@@ -494,11 +490,9 @@ if test -d $HOME/.EnvManager/fish
 end
 ```
 
-The original profile files shall be backed up before being replaced.
-
 #### PowerShell
 
-For PowerShell the existing profile files (e.g., `$PROFILE`) shall be replaced by:
+For PowerShell the existing profile file (e.g., `$PROFILE`) shall be moved into `$HOME/.EnvManager/powershell/00_Profile.ps1` and replaced by:
 
 ```powershell
 $env:PATH = "$HOME/.local/bin$([IO.Path]::PathSeparator)$env:PATH"
@@ -510,11 +504,9 @@ if (Test-Path $path) {
 }
 ```
 
-The original profile files shall be backed up before being replaced.
-
 #### CMD
 
-For CMD the existing profile files (e.g., `C:\Users\<User>\_cmdrc`) shall be replaced by:
+For CMD the existing profile file (e.g., `C:\Users\<User>\_cmdrc`) shall be moved into `%USERPROFILE%\.EnvManager\cmd\00_Profile.cmd` and replaced by:
 
 ```cmd
 set PATH=%USERPROFILE%\.local\bin;%PATH%
@@ -524,7 +516,6 @@ for %%f in ("%USERPROFILE%\.EnvManager\cmd\*") do (
 )
 ```
 
-The original profile files shall be backed up before being replaced.
 
 ### Tools
 

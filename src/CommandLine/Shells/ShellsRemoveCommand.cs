@@ -14,12 +14,12 @@ using EnvManager.Shells;
 
 namespace EnvManager.CommandLine.Shells;
 
-/// <summary>Disables a configured shell and restores its backed-up profile files.</summary>
+/// <summary>Disables a configured shell and removes its installed profile loaders.</summary>
 public sealed class ShellsRemoveCommand : Command
 {
     /// <summary>Initializes a new instance of the <see cref="ShellsRemoveCommand"/> class.</summary>
     public ShellsRemoveCommand()
-        : base("remove", "Disables a shell and restores its original profile files.")
+        : base("remove", "Disables a shell and removes its profile loaders.")
     {
         Argument<string> shellNameArgument = new("shell_name")
         {
@@ -45,7 +45,7 @@ public sealed class ShellsRemoveCommand : Command
             installer.Uninstall(normalizedName);
             await repository.SaveConfigurationAsync(configuration, $"Disable shell '{normalizedName}'.", cancellationToken).ConfigureAwait(false);
 
-            ConsoleReporter.Success($"Disabled shell '{normalizedName}' and restored its profile files.");
+            ConsoleReporter.Success($"Disabled shell '{normalizedName}' and removed its profile loaders.");
         }));
     }
 }
