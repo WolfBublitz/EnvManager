@@ -145,6 +145,7 @@ Commands:
   clone <repository_url>     Clones the environment configuration repository.
   init                        Initializes a new, local-only environment configuration repository.
   variable                    Manage environment variables and configurations.
+  settings                    Manage key-value settings stored in config.yml.
   tools                       Manage tools and configurations.
   files                       Manage files and configurations in the environment repository.
   shells                      Manage supported shells and their profile integration.
@@ -170,6 +171,14 @@ EnvManager variable set <variable_name> <variable_value>   # Add or overwrite a 
 EnvManager variable update <variable_name> <variable_value> # Update an existing variable
 EnvManager variable remove <variable_name>                  # Remove a variable
 EnvManager variable list                                    # List all variables
+```
+
+### Settings
+
+```bash
+EnvManager settings set <setting_key> <setting_value> # Add or overwrite a setting in config.yml
+EnvManager settings remove <setting_key>              # Remove a setting
+EnvManager settings list                              # List all settings
 ```
 
 ### Tools

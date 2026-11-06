@@ -129,6 +129,10 @@ envmanager:
     remove: # Removes an existing environment variable or configuration.
     list:   # Lists all environment variables and configurations.
     update: # Updates an existing environment variable or configuration.
+  settings:
+    set:    # Adds or overwrites a key-value setting in config.yml.
+    remove: # Removes an existing setting.
+    list:   # Lists all settings.
   tools:
     add:    # Adds a new tool or configuration.
     remove: # Removes an existing tool or configuration.
@@ -165,7 +169,8 @@ Commands:
   init        Initializes a new local environment configuration.
   clone       Clones the environment configuration.
   variable    Manage environment variables and configurations.
-  tools       Manage tools and configurations.
+  settings   Manage key-value settings stored in config.yml.
+  tools      Manage tools and configurations.
   shells      Manage supported shells and their profile integration.
   push        Push the current environment configuration to the remote repository.
   pull        Pull the latest environment configuration from the remote repository.
@@ -237,6 +242,42 @@ Description:
 
 Syntax:
   EnvManager variable list
+```
+
+#### Settings Command
+
+```bash
+Description:
+  Manage key-value settings stored in the current environment's config.yml.
+
+Syntax:
+  EnvManager settings [subcommand]
+
+Subcommands:
+  set    Adds or overwrites a setting.
+  remove Removes an existing setting.
+  list   Lists all settings.
+```
+
+##### Set Subcommand
+
+```bash
+Syntax:
+  EnvManager settings set [setting_key] [setting_value]
+```
+
+##### Remove Subcommand
+
+```bash
+Syntax:
+  EnvManager settings remove [setting_key]
+```
+
+##### List Subcommand
+
+```bash
+Syntax:
+  EnvManager settings list
 ```
 
 #### Tools Command
