@@ -176,10 +176,12 @@ EnvManager variable list                                    # List all variables
 ### Settings
 
 ```bash
-EnvManager settings set <setting_key> <setting_value> # Add or overwrite a setting in config.yml
-EnvManager settings remove <setting_key>              # Remove a setting
-EnvManager settings list                              # List all settings
+EnvManager settings edit                              # Select an available key and edit its value
+EnvManager settings remove [setting_key]              # Remove a setting, prompting when omitted
+EnvManager settings list                              # List all configured settings
 ```
+
+Available setting keys are documented in the [specification](./SPECIFICATION.md#settings-command); currently, only `editor` is supported.
 
 ### Tools
 

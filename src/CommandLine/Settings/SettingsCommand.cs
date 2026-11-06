@@ -22,7 +22,7 @@ public sealed class SettingsCommand : Command
     public SettingsCommand()
         : base("settings", "Manage key-value settings for the current environment.")
     {
-        this.Add(new SettingsSetCommand());
+        this.Add(new SettingsEditCommand());
         this.Add(new SettingsRemoveCommand());
         this.Add(new SettingsListCommand());
     }
