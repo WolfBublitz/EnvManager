@@ -4,7 +4,9 @@
 // │ Created: 2026-09-18                                                            │
 // └────────────────────────────────────────────────────────────────────────────────┘
 
+using System;
 using System.IO;
+using System.Linq;
 using System.Diagnostics.CodeAnalysis;
 
 using YamlDotNet.Serialization;
@@ -18,6 +20,8 @@ namespace EnvManager.Configuration;
 /// </summary>
 public sealed class ConfigurationSerializer
 {
+    private const string SchemaReference = "# yaml-language-server: $schema=https://github.com/WolfBublitz/EnvManager/releases/download/1.0.0-preview.6/config.schema.1.0.0.yaml";
+
     // ┌────────────────────────────────────────────────────────────────────────────────┐
     // │ private Field                                                                   │
     // └────────────────────────────────────────────────────────────────────────────────┘
@@ -67,12 +71,19 @@ public sealed class ConfigurationSerializer
     /// <summary>Serializes and writes the given environment configuration to the given file.</summary>
     /// <param name="file">The <c>.EnvManager/config.yml</c> file to write.</param>
     /// <param name="configuration">The configuration to persist.</param>
-    public void Save(FileInfo file, EnvironmentConfiguration configuration)
+    /// <returns>True when the schema reference was added or changed; otherwise, false.</returns>
+    public bool Save(FileInfo file, EnvironmentConfiguration configuration)
     {
         file.Directory?.Create();
 
-        string yaml = this.serializer.Serialize(configuration);
+        string? existingSchemaReference = file.Exists
+            ? File.ReadLines(file.FullName).FirstOrDefault()
+            : null;
+        bool schemaReferenceUpdated = !string.Equals(existingSchemaReference, SchemaReference, StringComparison.Ordinal);
+        string yaml = SchemaReference + "\n" + this.serializer.Serialize(configuration);
 
         File.WriteAllText(file.FullName, yaml);
+
+        return schemaReferenceUpdated;
     }
 }
