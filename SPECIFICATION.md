@@ -388,6 +388,8 @@ Arguments:
 
 Removing a file stages it for removal without committing or deleting the local file.
 Run `EnvManager push` to commit and publish the removal.
+When `file_name` is omitted, EnvManager prompts for a tracked file and asks for
+confirmation before staging its removal. This selection requires an interactive terminal.
 
 ##### List Subcommand
 
