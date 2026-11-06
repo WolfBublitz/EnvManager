@@ -5,6 +5,7 @@
 // └────────────────────────────────────────────────────────────────────────────────┘
 
 using System.IO;
+using System.Diagnostics.CodeAnalysis;
 
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
@@ -40,6 +41,12 @@ public sealed class ConfigurationSerializer
     /// </summary>
     /// <param name="file">The <c>.EnvManager/config.yml</c> file to read.</param>
     /// <param name="environmentName">The environment name to use when the file is missing.</param>
+    [DynamicDependency(
+        DynamicallyAccessedMemberTypes.PublicParameterlessConstructor | DynamicallyAccessedMemberTypes.PublicProperties,
+        typeof(EnvironmentConfiguration))]
+    [DynamicDependency(
+        DynamicallyAccessedMemberTypes.PublicParameterlessConstructor | DynamicallyAccessedMemberTypes.PublicProperties,
+        typeof(ToolDefinition))]
     public EnvironmentConfiguration Load(FileInfo file, string environmentName)
     {
         if (!file.Exists)
