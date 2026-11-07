@@ -11,6 +11,7 @@ using System.Reflection;
 using System.Threading.Tasks;
 
 using EnvManager.CommandLine;
+using EnvManager.Configuration;
 using Semver;
 using Spectre.Console;
 
@@ -29,6 +30,19 @@ public static class Program
     public static async Task<int> Main(string[] args)
     {
         PrintHeader();
+
+        if (EnvironmentRepository.IsInitialized)
+        {
+            int migrationExitCode = await CommandExecutor.RunAsync(async () =>
+            {
+                await EnvironmentRepository.OpenExisting().MigrateConfigurationAsync().ConfigureAwait(false);
+            }).ConfigureAwait(false);
+
+            if (migrationExitCode != 0)
+            {
+                return migrationExitCode;
+            }
+        }
 
         EnvManagerRootCommand rootCommand = new();
         ParseResult parseResult = rootCommand.Parse(args);

@@ -16,11 +16,18 @@ namespace EnvManager.Configuration;
 public sealed class EnvironmentConfiguration
 {
     // ┌────────────────────────────────────────────────────────────────────────────────┐
+    // │ public Field                                                                   │
+    // └────────────────────────────────────────────────────────────────────────────────┘
+
+    /// <summary>Gets the configuration format version supported by this application.</summary>
+    public const string CurrentFormatVersion = "1.0";
+
+    // ┌────────────────────────────────────────────────────────────────────────────────┐
     // │ public Property                                                                 │
     // └────────────────────────────────────────────────────────────────────────────────┘
 
     /// <summary>Gets or sets the configuration file format version.</summary>
-    public string FormatVersion { get; set; } = "1.0";
+    public string FormatVersion { get; set; } = CurrentFormatVersion;
 
     /// <summary>Gets or sets the name of the environment (matches the git branch name).</summary>
     public string Name { get; set; } = string.Empty;

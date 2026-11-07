@@ -322,6 +322,12 @@ tools:
     version: null
 ```
 
+On startup, EnvManager checks the current environment's configuration against the format
+version supported by the installed app. It adds missing version or schema metadata and
+commits those changes automatically. Configurations using an unsupported format version
+are left unchanged and reported as an error. Files without `formatVersion` are treated
+as version `1.0`.
+
 See the [configuration JSON Schema](schemas/config/config.schema.1.0.0.yaml) for field and
 compatibility details. Tagged releases publish versioned schema files as separate assets;
 the current schema is available from the

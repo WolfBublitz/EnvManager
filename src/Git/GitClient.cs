@@ -315,6 +315,13 @@ public sealed class GitClient
         await this.RunOrThrowAsync(["commit", "-m", message], cancellationToken).ConfigureAwait(false);
     }
 
+    /// <summary>Commits changes to a single file without including other staged files.</summary>
+    /// <param name="message">The Git commit message.</param>
+    /// <param name="relativePath">The file path relative to the work tree.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    public Task CommitFileAsync(string message, string relativePath, CancellationToken cancellationToken = default)
+        => this.RunOrThrowAsync(["commit", "--only", "-m", message, "--", relativePath], cancellationToken);
+
     /// <summary>
     /// Stages modifications and deletions of all tracked files. Untracked files are left
     /// alone, since the work tree is the user's home directory.
