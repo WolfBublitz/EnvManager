@@ -35,12 +35,14 @@ public sealed class ShellProfileInstallerTests
             string installedContent = File.ReadAllText(bashrc);
             string migratedProfile = Path.Combine(home.FullName, ".EnvManager", "bash", "00_Profile.sh");
 
-            string expectedContent = "export PATH=\"$HOME/.local/bin:$PATH\"\n\nfor file in \"$HOME/.EnvManager/bash/\"*.sh; do\n    [ -f \"$file\" ] && source \"$file\"\ndone\n";
+            string expectedContent = "for file in \"$HOME/.EnvManager/bash/\"*.sh; do\n    [ -f \"$file\" ] && source \"$file\"\ndone\n";
 
             await Assert.That(installedContent).IsEqualTo(expectedContent);
             await Assert.That(File.ReadAllText(bashProfile)).IsEqualTo(expectedContent);
             await Assert.That(File.ReadAllText(migratedProfile)).Contains("original bashrc");
             await Assert.That(File.ReadAllText(migratedProfile)).Contains("original bash profile");
+            await Assert.That(File.ReadAllText(Path.Combine(home.FullName, ".EnvManager", "bash", "01_EnvManager.sh")))
+                .IsEqualTo("export PATH=\"$HOME/.local/bin:$PATH\"\n");
             await Assert.That(File.Exists(Path.Combine(home.FullName, ".EnvManager", "backups", "shell-profiles", "bash", ".bashrc"))).IsFalse();
             await Assert.That(File.Exists(bashrc)).IsTrue();
         }
@@ -90,7 +92,9 @@ public sealed class ShellProfileInstallerTests
 
             installer.Install("bash");
 
-            await Assert.That(File.ReadAllText(bashrc)).StartsWith("export PATH=\"$HOME/.local/bin:$PATH\"\n\n");
+            await Assert.That(File.ReadAllText(bashrc)).IsEqualTo("for file in \"$HOME/.EnvManager/bash/\"*.sh; do\n    [ -f \"$file\" ] && source \"$file\"\ndone\n");
+            await Assert.That(File.ReadAllText(Path.Combine(home.FullName, ".EnvManager", "bash", "01_EnvManager.sh")))
+                .IsEqualTo("export PATH=\"$HOME/.local/bin:$PATH\"\n");
             await Assert.That(File.ReadAllText(migratedProfile)).IsEqualTo("original profile");
             installer.Uninstall("bash");
             await Assert.That(File.Exists(bashrc)).IsFalse();
@@ -192,6 +196,7 @@ public sealed class ShellProfileInstallerTests
 
             await Assert.That(File.Exists(bashrc)).IsFalse();
             await Assert.That(File.ReadAllText(Path.Combine(home.FullName, ".EnvManager", "bash", "00_Profile.sh"))).IsEqualTo(original);
+            await Assert.That(File.Exists(Path.Combine(home.FullName, ".EnvManager", "bash", "01_EnvManager.sh"))).IsFalse();
             await Assert.That(File.Exists(Path.Combine(home.FullName, ".bash_profile"))).IsFalse();
         }
         finally
@@ -277,10 +282,12 @@ public sealed class ShellProfileInstallerTests
 
             string content = File.ReadAllText(Path.Combine(home.FullName, ".zshrc"));
 
-            string expectedContent = "export PATH=\"$HOME/.local/bin:$PATH\"\n\nfor file in \"$HOME/.EnvManager/zsh/\"*.sh; do\n    [ -f \"$file\" ] && source \"$file\"\ndone\n";
+            string expectedContent = "for file in \"$HOME/.EnvManager/zsh/\"*.sh; do\n    [ -f \"$file\" ] && source \"$file\"\ndone\n";
 
             await Assert.That(content).IsEqualTo(expectedContent);
             await Assert.That(File.ReadAllText(Path.Combine(home.FullName, ".zprofile"))).IsEqualTo(expectedContent);
+            await Assert.That(File.ReadAllText(Path.Combine(home.FullName, ".EnvManager", "zsh", "01_EnvManager.sh")))
+                .IsEqualTo("export PATH=\"$HOME/.local/bin:$PATH\"\n");
         }
         finally
         {
@@ -301,9 +308,11 @@ public sealed class ShellProfileInstallerTests
             string profile = Path.Combine(home.FullName, ".config", "fish", "config.fish");
             string content = File.ReadAllText(profile);
 
-            string expectedContent = "set -gx PATH \"$HOME/.local/bin\" $PATH\n\nif test -d $HOME/.EnvManager/fish\n    for file in $HOME/.EnvManager/fish/*.fish\n        source \"$file\"\n    end\nend\n";
+            string expectedContent = "if test -d $HOME/.EnvManager/fish\n    for file in $HOME/.EnvManager/fish/*.fish\n        source \"$file\"\n    end\nend\n";
 
             await Assert.That(content).IsEqualTo(expectedContent);
+            await Assert.That(File.ReadAllText(Path.Combine(home.FullName, ".EnvManager", "fish", "01_EnvManager.fish")))
+                .IsEqualTo("set -gx PATH \"$HOME/.local/bin\" $PATH\n");
         }
         finally
         {
@@ -323,9 +332,11 @@ public sealed class ShellProfileInstallerTests
 
             string profile = Path.Combine(home.FullName, ".config", "powershell", "Microsoft.PowerShell_profile.ps1");
 
-            string expectedContent = "$env:PATH = \"$HOME/.local/bin$([IO.Path]::PathSeparator)$env:PATH\"\n\n$path = \"$HOME/.EnvManager/powershell\"\n\nif (Test-Path $path) {\n    Get-ChildItem $path -Filter *.ps1 -File | ForEach-Object { . $_.FullName }\n}\n";
+            string expectedContent = "$path = \"$HOME/.EnvManager/powershell\"\n\nif (Test-Path $path) {\n    Get-ChildItem $path -Filter *.ps1 -File | Sort-Object Name | ForEach-Object { . $_.FullName }\n}\n";
 
             await Assert.That(File.ReadAllText(profile)).IsEqualTo(expectedContent);
+            await Assert.That(File.ReadAllText(Path.Combine(home.FullName, ".EnvManager", "powershell", "01_EnvManager.ps1")))
+                .IsEqualTo("$env:PATH = \"$HOME/.local/bin$([IO.Path]::PathSeparator)$env:PATH\"\n");
         }
         finally
         {
@@ -345,9 +356,11 @@ public sealed class ShellProfileInstallerTests
 
             string profile = Path.Combine(home.FullName, "Documents", "PowerShell", "Microsoft.PowerShell_profile.ps1");
 
-            string expectedContent = "$env:PATH = \"$HOME/.local/bin$([IO.Path]::PathSeparator)$env:PATH\"\n\n$path = \"$HOME/.EnvManager/powershell\"\n\nif (Test-Path $path) {\n    Get-ChildItem $path -Filter *.ps1 -File | ForEach-Object { . $_.FullName }\n}\n";
+            string expectedContent = "$path = \"$HOME/.EnvManager/powershell\"\n\nif (Test-Path $path) {\n    Get-ChildItem $path -Filter *.ps1 -File | Sort-Object Name | ForEach-Object { . $_.FullName }\n}\n";
 
             await Assert.That(File.ReadAllText(profile)).IsEqualTo(expectedContent);
+            await Assert.That(File.ReadAllText(Path.Combine(home.FullName, ".EnvManager", "powershell", "01_EnvManager.ps1")))
+                .IsEqualTo("$env:PATH = \"$HOME/.local/bin$([IO.Path]::PathSeparator)$env:PATH\"\n");
         }
         finally
         {
@@ -367,9 +380,11 @@ public sealed class ShellProfileInstallerTests
 
             string content = File.ReadAllText(Path.Combine(home.FullName, "_cmdrc"));
 
-            string expectedContent = "set PATH=%USERPROFILE%\\.local\\bin;%PATH%\n\nfor %%f in (\"%USERPROFILE%\\.EnvManager\\cmd\\*\") do (\n    if exist \"%%f\" call \"%%f\"\n)\n";
+            string expectedContent = "for %%f in (\"%USERPROFILE%\\.EnvManager\\cmd\\*\") do (\n    if exist \"%%f\" call \"%%f\"\n)\n";
 
             await Assert.That(content).IsEqualTo(expectedContent);
+            await Assert.That(File.ReadAllText(Path.Combine(home.FullName, ".EnvManager", "cmd", "01_EnvManager.cmd")))
+                .IsEqualTo("set PATH=%USERPROFILE%\\.local\\bin;%PATH%\n");
         }
         finally
         {
@@ -400,6 +415,8 @@ public sealed class ShellProfileInstallerTests
             await Assert.That(File.ReadAllText(migratedProfile)).IsEqualTo("original profile");
             await Assert.That(File.Exists(Path.Combine(home.FullName, ".EnvManager", "backups", "shell-profiles", shell, profilePath))).IsFalse();
             await Assert.That(File.ReadAllText(originalProfile)).Contains(".EnvManager");
+            string pathProfileExtension = Path.GetExtension(migratedFileName);
+            await Assert.That(File.Exists(Path.Combine(home.FullName, ".EnvManager", shell, $"01_EnvManager{pathProfileExtension}"))).IsTrue();
         }
         finally
         {
@@ -433,10 +450,34 @@ public sealed class ShellProfileInstallerTests
     }
 
     [Test]
+    public async Task InstallAndUninstallPreserveModifiedEnvManagerPathProfile()
+    {
+        DirectoryInfo home = CreateHome();
+
+        try
+        {
+            ShellProfileInstaller installer = new(home, isWindows: false);
+            installer.Install("bash");
+
+            string pathProfile = Path.Combine(home.FullName, ".EnvManager", "bash", "01_EnvManager.sh");
+            File.WriteAllText(pathProfile, "user edits");
+
+            await Assert.That(() => installer.Install("bash")).Throws<ConfigurationException>();
+            await Assert.That(() => installer.Uninstall("bash")).Throws<ConfigurationException>();
+            await Assert.That(File.ReadAllText(pathProfile)).IsEqualTo("user edits");
+            await Assert.That(File.Exists(Path.Combine(home.FullName, ".bashrc"))).IsTrue();
+        }
+        finally
+        {
+            Directory.Delete(home.FullName, recursive: true);
+        }
+    }
+
+    [Test]
     [Arguments("zsh", false, ".zshrc", "for file in \"$HOME/.EnvManager/zsh/\"*.sh; do\n    [ -f \"$file\" ] && source \"$file\"\ndone\n")]
     [Arguments("fish", false, ".config/fish/config.fish", "if test -d $HOME/.EnvManager/fish\n    for file in $HOME/.EnvManager/fish/*.fish\n        source \"$file\"\n    end\nend\n")]
-    [Arguments("powershell", false, ".config/powershell/Microsoft.PowerShell_profile.ps1", "$path = \"$HOME/.EnvManager/powershell\"\n\nif (Test-Path $path) {\n    Get-ChildItem $path -Filter *.ps1 -File | ForEach-Object { . $_.FullName }\n}\n")]
-    [Arguments("powershell", true, "Documents/PowerShell/Microsoft.PowerShell_profile.ps1", "$path = \"$HOME/.EnvManager/powershell\"\n\nif (Test-Path $path) {\n    Get-ChildItem $path -Filter *.ps1 -File | ForEach-Object { . $_.FullName }\n}\n")]
+    [Arguments("powershell", false, ".config/powershell/Microsoft.PowerShell_profile.ps1", "$path = \"$HOME/.EnvManager/powershell\"\n\nif (Test-Path $path) {\n    Get-ChildItem $path -Filter *.ps1 -File | Sort-Object Name | ForEach-Object { . $_.FullName }\n}\n")]
+    [Arguments("powershell", true, "Documents/PowerShell/Microsoft.PowerShell_profile.ps1", "$path = \"$HOME/.EnvManager/powershell\"\n\nif (Test-Path $path) {\n    Get-ChildItem $path -Filter *.ps1 -File | Sort-Object Name | ForEach-Object { . $_.FullName }\n}\n")]
     [Arguments("cmd", true, "_cmdrc", "for %%f in (\"%USERPROFILE%\\.EnvManager\\cmd\\*\") do (\n    if exist \"%%f\" call \"%%f\"\n)\n")]
     public async Task LegacyLoadersUpgradeAndUninstallWithoutLosingMigratedProfiles(string shell, bool isWindows, string relativePath, string legacyContent)
     {
