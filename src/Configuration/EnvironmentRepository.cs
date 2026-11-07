@@ -139,10 +139,40 @@ public sealed class EnvironmentRepository
     /// <param name="cancellationToken">A token to cancel the operation.</param>
     public async Task<EnvironmentConfiguration> LoadConfigurationAsync(CancellationToken cancellationToken = default)
     {
+        await this.MigrateConfigurationAsync(cancellationToken).ConfigureAwait(false);
+
         string environmentName = await this.GetCurrentEnvironmentNameAsync(cancellationToken).ConfigureAwait(false);
         EnvironmentConfiguration configuration = this.serializer.Load(EnvManagerPaths.EnvironmentFile, environmentName);
         ShellEnvironmentExporter.Synchronize(configuration, EnvManagerPaths.HomeDirectory, OperatingSystem.IsWindows());
         return configuration;
+    }
+
+    /// <summary>Checks and migrates the current configuration to the latest supported schema.</summary>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>A task that completes when migration is finished.</returns>
+    public async Task MigrateConfigurationAsync(CancellationToken cancellationToken = default)
+    {
+        FileInfo configurationFile = EnvManagerPaths.EnvironmentFile;
+
+        if (!configurationFile.Exists)
+        {
+            return;
+        }
+
+        string environmentName = await this.GetCurrentEnvironmentNameAsync(cancellationToken).ConfigureAwait(false);
+        EnvironmentConfiguration configuration = this.serializer.Load(configurationFile, environmentName);
+
+        if (!this.serializer.Migrate(configurationFile, configuration))
+        {
+            return;
+        }
+
+        await this.Git.AddAsync(EnvManagerPaths.EnvironmentFileRelativePath, cancellationToken).ConfigureAwait(false);
+        await this.Git.CommitFileAsync(
+            $"Migrate configuration to format version {EnvironmentConfiguration.CurrentFormatVersion}.",
+            EnvManagerPaths.EnvironmentFileRelativePath,
+            cancellationToken).ConfigureAwait(false);
+        ConsoleReporter.Info($"Migrated config.yml to format version {EnvironmentConfiguration.CurrentFormatVersion}.");
     }
 
     /// <summary>Persists and commits the given configuration for the currently checked-out environment.</summary>
@@ -178,10 +208,7 @@ public sealed class EnvironmentRepository
         }
         else
         {
-            ShellEnvironmentExporter.Synchronize(
-                this.serializer.Load(EnvManagerPaths.EnvironmentFile, environmentName),
-                EnvManagerPaths.HomeDirectory,
-                OperatingSystem.IsWindows());
+            _ = await this.LoadConfigurationAsync(cancellationToken).ConfigureAwait(false);
         }
     }
 

@@ -5,10 +5,13 @@
 // └────────────────────────────────────────────────────────────────────────────────┘
 
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Diagnostics.CodeAnalysis;
+using System.Text.RegularExpressions;
 
+using EnvManager.Exceptions;
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
 
@@ -20,7 +23,9 @@ namespace EnvManager.Configuration;
 /// </summary>
 public sealed class ConfigurationSerializer
 {
-    private const string SchemaReference = "# yaml-language-server: $schema=https://github.com/WolfBublitz/EnvManager/releases/download/1.0.0-preview.6/config.schema.1.0.0.yaml";
+    private const string SchemaReference = "# yaml-language-server: $schema=https://github.com/WolfBublitz/EnvManager/releases/latest/download/config.schema.1.0.0.yaml";
+    private const string SchemaReferencePrefix = "# yaml-language-server:";
+    private static readonly Regex FormatVersionPattern = new("(?m)^formatVersion\\s*:", RegexOptions.CultureInvariant);
 
     // ┌────────────────────────────────────────────────────────────────────────────────┐
     // │ private Field                                                                   │
@@ -65,7 +70,16 @@ public sealed class ConfigurationSerializer
             return new EnvironmentConfiguration { Name = environmentName };
         }
 
-        return this.deserializer.Deserialize<EnvironmentConfiguration>(yaml) ?? new EnvironmentConfiguration { Name = environmentName };
+        EnvironmentConfiguration configuration = this.deserializer.Deserialize<EnvironmentConfiguration>(yaml) ?? new EnvironmentConfiguration { Name = environmentName };
+
+        if (!string.Equals(configuration.FormatVersion, EnvironmentConfiguration.CurrentFormatVersion, StringComparison.Ordinal))
+        {
+            throw new ConfigurationException(
+                $"Configuration format version '{configuration.FormatVersion}' is not supported. " +
+                $"This version of EnvManager supports format version '{EnvironmentConfiguration.CurrentFormatVersion}'.");
+        }
+
+        return configuration;
     }
 
     /// <summary>Serializes and writes the given environment configuration to the given file.</summary>
@@ -79,11 +93,67 @@ public sealed class ConfigurationSerializer
         string? existingSchemaReference = file.Exists
             ? File.ReadLines(file.FullName).FirstOrDefault()
             : null;
-        bool schemaReferenceUpdated = !string.Equals(existingSchemaReference, SchemaReference, StringComparison.Ordinal);
         string yaml = SchemaReference + "\n" + this.serializer.Serialize(configuration);
+        bool contentUpdated = !file.Exists || !string.Equals(File.ReadAllText(file.FullName), yaml, StringComparison.Ordinal);
 
-        File.WriteAllText(file.FullName, yaml);
+        if (contentUpdated)
+        {
+            File.WriteAllText(file.FullName, yaml);
+        }
 
-        return schemaReferenceUpdated;
+        return !string.Equals(existingSchemaReference, SchemaReference, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Updates schema metadata and adds the current format version to legacy configuration files.
+    /// </summary>
+    /// <param name="file">The configuration file to migrate.</param>
+    /// <param name="configuration">The validated configuration loaded from the file.</param>
+    /// <returns>True when the file was changed.</returns>
+    public bool Migrate(FileInfo file, EnvironmentConfiguration configuration)
+    {
+        if (!file.Exists)
+        {
+            return false;
+        }
+
+        string yaml = File.ReadAllText(file.FullName);
+
+        if (string.IsNullOrWhiteSpace(yaml))
+        {
+            _ = this.Save(file, configuration);
+            return true;
+        }
+
+        string newline = yaml.Contains("\r\n", StringComparison.Ordinal) ? "\r\n" : "\n";
+        string[] lines = yaml.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n');
+        List<string> migratedLines = [.. lines];
+
+        if (migratedLines[0].StartsWith(SchemaReferencePrefix, StringComparison.Ordinal))
+        {
+            migratedLines[0] = SchemaReference;
+        }
+        else
+        {
+            migratedLines.Insert(0, SchemaReference);
+        }
+
+        string normalizedYaml = string.Join("\n", migratedLines);
+
+        if (!FormatVersionPattern.IsMatch(normalizedYaml))
+        {
+            migratedLines.Insert(1, $"formatVersion: {configuration.FormatVersion}");
+        }
+
+        string migratedYaml = string.Join(newline, migratedLines);
+
+        if (string.Equals(yaml, migratedYaml, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        File.WriteAllText(file.FullName, migratedYaml);
+
+        return true;
     }
 }
