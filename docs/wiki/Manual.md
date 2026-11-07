@@ -84,9 +84,10 @@ EnvManager shells list
 EnvManager shells remove zsh
 ```
 
-Adding a shell migrates the existing profile into `$HOME/.EnvManager/<shell>/` and
-installs loader files. The repository's shell scripts run at shell startup, so review
-a configuration repository before trusting it.
+Adding a shell copies the existing profile into `$HOME/.EnvManager/<shell>/00_Profile`,
+replaces the original profile with a loader, and adds a `01_EnvManager` script that
+adds `$HOME/.local/bin` to `PATH`. The repository's shell scripts run at shell startup,
+so review a configuration repository before trusting it.
 
 ### Files
 

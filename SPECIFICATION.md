@@ -487,7 +487,7 @@ Possible shells include:
 | powershell | Linux, macOS, Windows |
 | cmd        | Windows               |
 
-Use `shells add <shell>` to install a loader and move any existing profile contents into `$HOME/.EnvManager/<shell>/00_Profile` with the shell's corresponding script extension. For bash and zsh use `.sh`, for fish `.fish`, for PowerShell `.ps1`, and for CMD `.cmd`. The migrated profile shall not be copied to the shell-profile backup directory. `shells remove <shell>` shall remove unmodified loader files while leaving the migrated profile in the shell directory. Installation shall stage profile replacements and the migrated profile, then roll back all changed files if any step fails. Shell loaders execute scripts from the environment repository; review and trust repository contents before enabling integration.
+Use `shells add <shell>` to copy any existing profile contents into `$HOME/.EnvManager/<shell>/00_Profile` with the shell's corresponding script extension and replace the original profiles with EnvManager loaders. For bash and zsh use `.sh`, for fish `.fish`, for PowerShell `.ps1`, and for CMD `.cmd`. The migrated profile shall not be copied to the shell-profile backup directory. `shells remove <shell>` shall remove unmodified loader files while leaving the migrated profile in the shell directory. Installation shall stage profile replacements, the `01_EnvManager` PATH script, and the migrated profile, then roll back all changed files if any step fails. Shell loaders execute scripts from the environment repository; review and trust repository contents before enabling integration.
 
 When a loader profile is not tracked in the current environment, `shells add` shall
 commit it and push the current branch to `origin`. Existing tracked profiles shall not
@@ -495,37 +495,45 @@ be staged again by this operation, though any already staged changes are include
 the commit. A failed push shall be reported and leave the local commit available for a
 later `push`; pushing also publishes any earlier local commits.
 
+The installed shell profile shall only load scripts from the shell directory. EnvManager's executable directory shall be added to `PATH` by a separate `01_EnvManager` script in that directory. For each shell, the script shall use the extension listed above.
+
 #### Bash
 
-For bash the existing profile files (e.g., `~/.bashrc`, `~/.bash_profile`) shall be moved into `$HOME/.EnvManager/bash/00_Profile.sh` and replaced by:
+For bash the existing profile files (e.g., `~/.bashrc`, `~/.bash_profile`) shall be copied into `$HOME/.EnvManager/bash/00_Profile.sh` and replaced by:
 
 ```bash
-export PATH="$HOME/.local/bin:$PATH"
-
 for file in "$HOME/.EnvManager/bash/"*.sh; do
     [ -f "$file" ] && source "$file"
 done
 ```
 
-#### Zsh
-
-For zsh the existing profile files (e.g., `~/.zshrc`, `~/.zprofile`) shall be moved into `$HOME/.EnvManager/zsh/00_Profile.sh` and replaced by:
+`$HOME/.EnvManager/bash/01_EnvManager.sh` shall contain:
 
 ```bash
 export PATH="$HOME/.local/bin:$PATH"
+```
 
+#### Zsh
+
+For zsh the existing profile files (e.g., `~/.zshrc`, `~/.zprofile`) shall be copied into `$HOME/.EnvManager/zsh/00_Profile.sh` and replaced by:
+
+```bash
 for file in "$HOME/.EnvManager/zsh/"*.sh; do
     [ -f "$file" ] && source "$file"
 done
 ```
 
+`$HOME/.EnvManager/zsh/01_EnvManager.sh` shall contain:
+
+```bash
+export PATH="$HOME/.local/bin:$PATH"
+```
+
 #### Fish
 
-For fish the existing profile file (e.g., `~/.config/fish/config.fish`) shall be moved into `$HOME/.EnvManager/fish/00_Profile.fish` and replaced by:
+For fish the existing profile file (e.g., `~/.config/fish/config.fish`) shall be copied into `$HOME/.EnvManager/fish/00_Profile.fish` and replaced by:
 
 ```fish
-set -gx PATH "$HOME/.local/bin" $PATH
-
 if test -d $HOME/.EnvManager/fish
     for file in $HOME/.EnvManager/fish/*.fish
         source "$file"
@@ -533,30 +541,44 @@ if test -d $HOME/.EnvManager/fish
 end
 ```
 
+`$HOME/.EnvManager/fish/01_EnvManager.fish` shall contain:
+
+```fish
+set -gx PATH "$HOME/.local/bin" $PATH
+```
+
 #### PowerShell
 
-For PowerShell the existing profile file (e.g., `$PROFILE`) shall be moved into `$HOME/.EnvManager/powershell/00_Profile.ps1` and replaced by:
+For PowerShell the existing profile file (e.g., `$PROFILE`) shall be copied into `$HOME/.EnvManager/powershell/00_Profile.ps1` and replaced by:
 
 ```powershell
-$env:PATH = "$HOME/.local/bin$([IO.Path]::PathSeparator)$env:PATH"
-
 $path = "$HOME/.EnvManager/powershell"
 
 if (Test-Path $path) {
-    Get-ChildItem $path -Filter *.ps1 -File | ForEach-Object { . $_.FullName }
+    Get-ChildItem $path -Filter *.ps1 -File | Sort-Object Name | ForEach-Object { . $_.FullName }
 }
+```
+
+`$HOME/.EnvManager/powershell/01_EnvManager.ps1` shall contain:
+
+```powershell
+$env:PATH = "$HOME/.local/bin$([IO.Path]::PathSeparator)$env:PATH"
 ```
 
 #### CMD
 
-For CMD the existing profile file (e.g., `C:\Users\<User>\_cmdrc`) shall be moved into `%USERPROFILE%\.EnvManager\cmd\00_Profile.cmd` and replaced by:
+For CMD the existing profile file (e.g., `C:\Users\<User>\_cmdrc`) shall be copied into `%USERPROFILE%\.EnvManager\cmd\00_Profile.cmd` and replaced by:
 
 ```cmd
-set PATH=%USERPROFILE%\.local\bin;%PATH%
-
 for %%f in ("%USERPROFILE%\.EnvManager\cmd\*") do (
     if exist "%%f" call "%%f"
 )
+```
+
+`%USERPROFILE%\.EnvManager\cmd\01_EnvManager.cmd` shall contain:
+
+```cmd
+set PATH=%USERPROFILE%\.local\bin;%PATH%
 ```
 
 

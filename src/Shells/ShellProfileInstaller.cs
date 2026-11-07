@@ -19,15 +19,20 @@ namespace EnvManager.Shells;
 internal sealed class ShellProfileInstaller
 {
     private const string LegacyBashProfile = "for file in \"$HOME/.EnvManager/bash/\"*.sh; do\n    [ -f \"$file\" ] && source \"$file\"\ndone\n";
-    private const string BashProfile = "export PATH=\"$HOME/.local/bin:$PATH\"\n\n" + LegacyBashProfile;
+    private const string BashProfile = LegacyBashProfile;
+    private const string PreviousBashProfile = "export PATH=\"$HOME/.local/bin:$PATH\"\n\n" + LegacyBashProfile;
     private const string LegacyZshProfile = "for file in \"$HOME/.EnvManager/zsh/\"*.sh; do\n    [ -f \"$file\" ] && source \"$file\"\ndone\n";
-    private const string ZshProfile = "export PATH=\"$HOME/.local/bin:$PATH\"\n\n" + LegacyZshProfile;
+    private const string ZshProfile = LegacyZshProfile;
+    private const string PreviousZshProfile = "export PATH=\"$HOME/.local/bin:$PATH\"\n\n" + LegacyZshProfile;
     private const string LegacyFishProfile = "if test -d $HOME/.EnvManager/fish\n    for file in $HOME/.EnvManager/fish/*.fish\n        source \"$file\"\n    end\nend\n";
-    private const string FishProfile = "set -gx PATH \"$HOME/.local/bin\" $PATH\n\n" + LegacyFishProfile;
+    private const string FishProfile = LegacyFishProfile;
+    private const string PreviousFishProfile = "set -gx PATH \"$HOME/.local/bin\" $PATH\n\n" + LegacyFishProfile;
     private const string LegacyPowerShellProfile = "$path = \"$HOME/.EnvManager/powershell\"\n\nif (Test-Path $path) {\n    Get-ChildItem $path -Filter *.ps1 -File | ForEach-Object { . $_.FullName }\n}\n";
-    private const string PowerShellProfile = "$env:PATH = \"$HOME/.local/bin$([IO.Path]::PathSeparator)$env:PATH\"\n\n" + LegacyPowerShellProfile;
+    private const string PowerShellProfile = "$path = \"$HOME/.EnvManager/powershell\"\n\nif (Test-Path $path) {\n    Get-ChildItem $path -Filter *.ps1 -File | Sort-Object Name | ForEach-Object { . $_.FullName }\n}\n";
+    private const string PreviousPowerShellProfile = "$env:PATH = \"$HOME/.local/bin$([IO.Path]::PathSeparator)$env:PATH\"\n\n" + LegacyPowerShellProfile;
     private const string LegacyCommandPromptProfile = "for %%f in (\"%USERPROFILE%\\.EnvManager\\cmd\\*\") do (\n    if exist \"%%f\" call \"%%f\"\n)\n";
-    private const string CommandPromptProfile = "set PATH=%USERPROFILE%\\.local\\bin;%PATH%\n\n" + LegacyCommandPromptProfile;
+    private const string CommandPromptProfile = LegacyCommandPromptProfile;
+    private const string PreviousCommandPromptProfile = "set PATH=%USERPROFILE%\\.local\\bin;%PATH%\n\n" + LegacyCommandPromptProfile;
 
     private readonly DirectoryInfo homeDirectory;
     private readonly bool isWindows;
@@ -78,6 +83,8 @@ internal sealed class ShellProfileInstaller
         List<string> migrationContents = [];
         List<byte[]> migrationContentBytes = [];
         FileInfo migratedProfileFile = new(Path.Combine(this.homeDirectory.FullName, ".EnvManager", normalizedName, $"00_Profile{profile.MigrationExtension}"));
+        FileInfo envManagerProfileFile = new(Path.Combine(this.homeDirectory.FullName, ".EnvManager", normalizedName, $"01_EnvManager{profile.MigrationExtension}"));
+        string envManagerProfileContent = GetEnvManagerProfileContent(normalizedName);
 
         foreach (string relativePath in profile.ProfilePaths)
         {
@@ -106,6 +113,12 @@ internal sealed class ShellProfileInstaller
             throw new ConfigurationException($"Cannot migrate the existing shell profile because '{migratedProfileFile.FullName}' already exists.");
         }
 
+        if (envManagerProfileFile.Exists
+            && !string.Equals(File.ReadAllText(envManagerProfileFile.FullName), envManagerProfileContent, StringComparison.Ordinal))
+        {
+            throw new ConfigurationException($"EnvManager profile '{envManagerProfileFile.FullName}' was modified. Preserve or restore it before reinstalling shell integration.");
+        }
+
         string? migrationTemporaryFile = null;
         bool migratedProfileCreated = false;
 
@@ -122,6 +135,16 @@ internal sealed class ShellProfileInstaller
             }
 
             Directory.CreateDirectory(Path.Combine(this.homeDirectory.FullName, ".EnvManager", normalizedName));
+            if (!envManagerProfileFile.Exists)
+            {
+                string envManagerDirectory = envManagerProfileFile.DirectoryName
+                    ?? throw new IOException($"Could not determine the profile directory for '{envManagerProfileFile.FullName}'.");
+                Directory.CreateDirectory(envManagerDirectory);
+                string temporaryFile = Path.Combine(envManagerDirectory, $".{envManagerProfileFile.Name}.{Guid.NewGuid():N}.tmp");
+                profiles.Add((envManagerProfileFile, false, []));
+                stagedFiles.Add((envManagerProfileFile, temporaryFile));
+                File.WriteAllText(temporaryFile, envManagerProfileContent);
+            }
 
             if (migrationContents.Count > 0)
             {
@@ -148,6 +171,8 @@ internal sealed class ShellProfileInstaller
             }
 
             List<string> installedPaths = [.. profile.ProfilePaths];
+            installedPaths.Add(Path.Combine(".EnvManager", normalizedName, envManagerProfileFile.Name)
+                .Replace(Path.DirectorySeparatorChar, '/'));
             if (migrationContents.Count > 0 || File.Exists(migratedProfileFile.FullName))
             {
                 installedPaths.Add(Path.Combine(".EnvManager", normalizedName, migratedProfileFile.Name)
@@ -219,6 +244,12 @@ internal sealed class ShellProfileInstaller
         string normalizedName = this.NormalizeShellName(shellName);
         ShellProfile profile = this.GetProfile(normalizedName);
         List<(FileInfo ProfileFile, FileInfo BackupFile)> profiles = [];
+        FileInfo envManagerProfileFile = new(Path.Combine(this.homeDirectory.FullName, ".EnvManager", normalizedName, $"01_EnvManager{profile.MigrationExtension}"));
+        if (envManagerProfileFile.Exists
+            && !string.Equals(File.ReadAllText(envManagerProfileFile.FullName), GetEnvManagerProfileContent(normalizedName), StringComparison.Ordinal))
+        {
+            throw new ConfigurationException($"EnvManager profile '{envManagerProfileFile.FullName}' has changed since EnvManager installed it. It was left untouched.");
+        }
 
         foreach (string relativePath in profile.ProfilePaths)
         {
@@ -231,6 +262,11 @@ internal sealed class ShellProfileInstaller
             }
 
             profiles.Add((profileFile, backupFile));
+        }
+
+        if (envManagerProfileFile.Exists)
+        {
+            envManagerProfileFile.Delete();
         }
 
         foreach ((FileInfo profileFile, FileInfo backupFile) in profiles)
@@ -259,10 +295,30 @@ internal sealed class ShellProfileInstaller
             "cmd" => LegacyCommandPromptProfile,
             _ => throw new ConfigurationException($"Unsupported shell '{shellName}'."),
         };
+        string previousContent = shellName switch
+        {
+            "bash" => PreviousBashProfile,
+            "zsh" => PreviousZshProfile,
+            "fish" => PreviousFishProfile,
+            "powershell" => PreviousPowerShellProfile,
+            "cmd" => PreviousCommandPromptProfile,
+            _ => throw new ConfigurationException($"Unsupported shell '{shellName}'."),
+        };
 
         return string.Equals(content, profile.Content, StringComparison.Ordinal)
-            || string.Equals(content, legacyContent, StringComparison.Ordinal);
+            || string.Equals(content, legacyContent, StringComparison.Ordinal)
+            || string.Equals(content, previousContent, StringComparison.Ordinal);
     }
+
+    private static string GetEnvManagerProfileContent(string shellName)
+        => shellName switch
+        {
+            "bash" or "zsh" => "export PATH=\"$HOME/.local/bin:$PATH\"\n",
+            "fish" => "set -gx PATH \"$HOME/.local/bin\" $PATH\n",
+            "powershell" => "$env:PATH = \"$HOME/.local/bin$([IO.Path]::PathSeparator)$env:PATH\"\n",
+            "cmd" => "set PATH=%USERPROFILE%\\.local\\bin;%PATH%\n",
+            _ => throw new ConfigurationException($"Unsupported shell '{shellName}'."),
+        };
 
     private ShellProfile GetProfile(string shellName)
     {

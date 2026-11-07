@@ -298,10 +298,11 @@ EnvManager shells list                # List shells configured for this environm
 
 Supported shells are `bash`, `zsh`, `fish`, `powershell`, and `cmd`, subject to the
 operating-system support described in [SPECIFICATION.md](SPECIFICATION.md#shells).
-When adding a shell, existing profile contents are moved into
+When adding a shell, existing profile contents are copied into
 `$HOME/.EnvManager/<shell>/00_Profile` with the shell's script extension (`.sh`, `.fish`,
-`.ps1`, or `.cmd`), and the loader files replace the original profiles. The migrated
-profile is tracked with the loaders. Removing the shell deletes its loader files but
+`.ps1`, or `.cmd`), and the loader files replace the original profiles. A
+`01_EnvManager` script adds `$HOME/.local/bin` to `PATH`. The migrated profile and
+PATH script are tracked with the loaders. Removing the shell deletes its loader files but
 leaves the migrated profile in the shell directory. Newly tracked files are committed
 and pushed to `origin` by `shells add`; this also pushes any earlier local commits.
 If no remote is configured or the push fails, the local commit remains; configure or
