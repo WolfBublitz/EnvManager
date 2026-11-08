@@ -219,6 +219,7 @@ Commands:
   pull                        Pulls the latest environment configuration from the remote repository.
   switch <environment_name>   Switches to a different environment configuration.
   update [--version <version>] Checks for and installs a newer EnvManager version.
+  downgrade [--version <version>] Selects and installs an earlier EnvManager version.
 ```
 
 `EnvManager update` checks for newer releases with an asset for the current platform.
@@ -229,6 +230,13 @@ release's published SHA-256 digest before replacing the current binary. On Windo
 replacement is scheduled for when the current process exits. Run the installed
 `EnvManager` executable directly; self-update cannot replace a `dotnet` host when
 invoked as `dotnet run` or `dotnet EnvManager.dll`.
+
+`EnvManager downgrade` selects from earlier releases with an asset for the current
+platform. If several versions are available, an interactive terminal presents a
+selection list. For scripts or redirected input, specify one explicitly, for example
+`EnvManager downgrade --version 1.2.0`. The downloaded executable is checked against
+the release's published SHA-256 digest before replacing the current binary. On Windows,
+replacement is scheduled for when the current process exits.
 
 ### Variables
 

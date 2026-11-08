@@ -29,9 +29,30 @@ internal sealed class GitHubReleaseClient
         this.httpClient = httpClient;
     }
 
-    public async Task<IReadOnlyList<UpdateRelease>> GetAvailableUpdatesAsync(
+    public Task<IReadOnlyList<UpdateRelease>> GetAvailableUpdatesAsync(
         SemVersion currentVersion,
         string assetName,
+        CancellationToken cancellationToken)
+        => this.GetAvailableReleasesAsync(
+            currentVersion,
+            assetName,
+            isDowngrade: false,
+            cancellationToken: cancellationToken);
+
+    public Task<IReadOnlyList<UpdateRelease>> GetAvailableDowngradesAsync(
+        SemVersion currentVersion,
+        string assetName,
+        CancellationToken cancellationToken)
+        => this.GetAvailableReleasesAsync(
+            currentVersion,
+            assetName,
+            isDowngrade: true,
+            cancellationToken: cancellationToken);
+
+    private async Task<IReadOnlyList<UpdateRelease>> GetAvailableReleasesAsync(
+        SemVersion currentVersion,
+        string assetName,
+        bool isDowngrade,
         CancellationToken cancellationToken)
     {
         using HttpRequestMessage request = new(HttpMethod.Get, ReleasesUri);
@@ -60,7 +81,9 @@ internal sealed class GitHubReleaseClient
                 || tag.ValueKind != JsonValueKind.String
                 || !TryParseTag(tag.GetString(), out SemVersion? version)
                 || version is null
-                || version.ComparePrecedenceTo(currentVersion) <= 0
+                || (isDowngrade
+                    ? version.ComparePrecedenceTo(currentVersion) >= 0
+                    : version.ComparePrecedenceTo(currentVersion) <= 0)
                 || !release.TryGetProperty("assets", out JsonElement assets)
                 || assets.ValueKind != JsonValueKind.Array)
             {

@@ -5,6 +5,7 @@
 // └────────────────────────────────────────────────────────────────────────────────┘
 
 using System;
+using System.CommandLine;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
@@ -85,6 +86,110 @@ public sealed class UpdateCommandTests
             .Throws<ConfigurationException>();
         await Assert.That(() => UpdateCommand.SelectRelease(releases, "latest", false, _ => throw new InvalidOperationException()))
             .Throws<ConfigurationException>();
+    }
+
+    [Test]
+    public async Task DowngradeCommandIsRegisteredAtTheTopLevelWithAnExplicitVersionOption()
+    {
+        EnvManagerRootCommand root = new();
+
+        ParseResult parseResult = root.Parse(["downgrade", "--version", "1.0.0"]);
+
+        await Assert.That(parseResult.Errors.Count).IsEqualTo(0);
+    }
+
+    [Test]
+    public async Task SelectReleaseAutomaticallySelectsTheOnlyAvailableDowngrade()
+    {
+        UpdateRelease release = CreateRelease("1.0.0");
+
+        UpdateRelease selected = DowngradeCommand.SelectRelease(
+            [release],
+            requestedVersion: null,
+            interactive: false,
+            _ => throw new InvalidOperationException());
+
+        await Assert.That(selected).IsEqualTo(release);
+    }
+
+    [Test]
+    public async Task SelectReleaseUsesTheRequestedVersionWhenSeveralDowngradesAreAvailable()
+    {
+        UpdateRelease older = CreateRelease("1.0.0");
+        UpdateRelease newer = CreateRelease("2.0.0");
+
+        UpdateRelease selected = DowngradeCommand.SelectRelease(
+            [newer, older],
+            requestedVersion: "v1.0.0",
+            interactive: false,
+            _ => throw new InvalidOperationException());
+
+        await Assert.That(selected).IsEqualTo(older);
+    }
+
+    [Test]
+    public async Task SelectReleasePromptsForMultipleDowngradesWhenInteractive()
+    {
+        UpdateRelease older = CreateRelease("1.0.0");
+        UpdateRelease newer = CreateRelease("2.0.0");
+        bool promptInvoked = false;
+        IReadOnlyList<UpdateRelease>? presentedReleases = null;
+
+        UpdateRelease selected = DowngradeCommand.SelectRelease(
+            [older, newer],
+            requestedVersion: null,
+            interactive: true,
+            releases =>
+            {
+                promptInvoked = true;
+                presentedReleases = releases;
+                return releases[1];
+            });
+
+        await Assert.That(promptInvoked).IsTrue();
+        await Assert.That(presentedReleases?.Count).IsEqualTo(2);
+        await Assert.That(presentedReleases?[0]).IsEqualTo(older);
+        await Assert.That(presentedReleases?[1]).IsEqualTo(newer);
+        await Assert.That(selected).IsEqualTo(newer);
+    }
+
+    [Test]
+    public async Task SelectReleaseRequiresVersionWhenMultipleDowngradesAreNonInteractive()
+    {
+        await Assert.That(() => DowngradeCommand.SelectRelease(
+            [CreateRelease("1.0.0"), CreateRelease("2.0.0")],
+            requestedVersion: null,
+            interactive: false,
+            _ => throw new InvalidOperationException())).Throws<ConfigurationException>();
+    }
+
+    [Test]
+    public async Task SelectReleaseRejectsInvalidDowngradeVersionWithoutPromptingOrFallback()
+    {
+        IReadOnlyList<UpdateRelease> releases = [CreateRelease("1.0.0"), CreateRelease("2.0.0")];
+        bool promptInvoked = false;
+
+        await Assert.That(() => DowngradeCommand.SelectRelease(
+            releases,
+            requestedVersion: "latest",
+            interactive: true,
+            _ =>
+            {
+                promptInvoked = true;
+                return releases[0];
+            })).Throws<ConfigurationException>();
+
+        await Assert.That(() => DowngradeCommand.SelectRelease(
+            releases,
+            requestedVersion: "3.0.0",
+            interactive: true,
+            _ =>
+            {
+                promptInvoked = true;
+                return releases[0];
+            })).Throws<ConfigurationException>();
+
+        await Assert.That(promptInvoked).IsFalse();
     }
 
     [Test]

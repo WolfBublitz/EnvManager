@@ -40,5 +40,6 @@ public sealed class EnvManagerRootCommand : RootCommand
         this.Add(new PullCommand());
         this.Add(new SwitchCommand());
         this.Add(new UpdateCommand());
+        this.Add(new DowngradeCommand());
     }
 }
