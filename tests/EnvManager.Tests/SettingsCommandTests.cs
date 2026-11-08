@@ -13,7 +13,7 @@ namespace EnvManager.Tests;
 
 public sealed class SettingsCommandTests
 {
-    private const string SchemaReference = "# yaml-language-server: $schema=https://github.com/WolfBublitz/EnvManager/releases/download/1.0.0-preview.6/config.schema.1.0.0.yaml";
+    private const string SchemaReference = "# yaml-language-server: $schema=https://github.com/WolfBublitz/EnvManager/releases/latest/download/config.schema.1.0.0.yaml";
     private const string SchemaUpdateMessage = "Updated the configuration schema reference in config.yml.";
 
     [Test]
@@ -72,7 +72,7 @@ public sealed class SettingsCommandTests
     }
 
     [Test]
-    public async Task SaveReportsWhenSchemaReferenceIsMissingOrOutdated()
+    public async Task StartupReportsWhenSchemaReferenceIsMissingOrOutdated()
     {
         DirectoryInfo root = CreateRoot();
         try
@@ -91,7 +91,7 @@ public sealed class SettingsCommandTests
                 typeof(Program).Assembly.Location,
                 "settings",
                 "edit");
-            await Assert.That(output).Contains(SchemaUpdateMessage);
+            await Assert.That(output).Contains("Migrated config.yml to format version 1.0.");
             await Assert.That(File.ReadAllText(configPath)).Contains(SchemaReference);
 
             currentYaml = File.ReadAllText(configPath);
@@ -105,7 +105,8 @@ public sealed class SettingsCommandTests
                 typeof(Program).Assembly.Location,
                 "settings",
                 "edit");
-            await Assert.That(output).Contains(SchemaUpdateMessage);
+            await Assert.That(output).Contains("Migrated config.yml to format version 1.0.");
+            await Assert.That(File.ReadAllText(configPath)).Contains(SchemaReference);
 
             output = await RunSuccessWithInputAsync(
                 home,
@@ -114,7 +115,7 @@ public sealed class SettingsCommandTests
                 typeof(Program).Assembly.Location,
                 "settings",
                 "edit");
-            await Assert.That(output).DoesNotContain(SchemaUpdateMessage);
+            await Assert.That(output).DoesNotContain("Migrated config.yml to format version 1.0.");
         }
         finally
         {
@@ -223,8 +224,7 @@ public sealed class SettingsCommandTests
             .Build()
             .Deserialize<ConfigurationDocument>(yaml)!;
 
-        await Assert.That(yaml).Contains(
-            "# yaml-language-server: $schema=https://github.com/WolfBublitz/EnvManager/releases/download/1.0.0-preview.6/config.schema.1.0.0.yaml");
+        await Assert.That(yaml).Contains(SchemaReference);
         await Assert.That(yaml.Split('\n')[1]).IsEqualTo("formatVersion: 1.0");
         await Assert.That(configuration.FormatVersion).IsEqualTo("1.0");
         await Assert.That(configuration.Settings.Count).IsEqualTo(settingValue is null ? 0 : 1);

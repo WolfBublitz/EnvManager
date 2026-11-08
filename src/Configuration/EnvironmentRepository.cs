@@ -168,10 +168,14 @@ public sealed class EnvironmentRepository
         }
 
         await this.Git.AddAsync(EnvManagerPaths.EnvironmentFileRelativePath, cancellationToken).ConfigureAwait(false);
-        await this.Git.CommitFileAsync(
-            $"Migrate configuration to format version {EnvironmentConfiguration.CurrentFormatVersion}.",
-            EnvManagerPaths.EnvironmentFileRelativePath,
-            cancellationToken).ConfigureAwait(false);
+        if (await this.Git.HasStagedChangesForFileAsync(EnvManagerPaths.EnvironmentFileRelativePath, cancellationToken).ConfigureAwait(false))
+        {
+            await this.Git.CommitFileAsync(
+                $"Migrate configuration to format version {EnvironmentConfiguration.CurrentFormatVersion}.",
+                EnvManagerPaths.EnvironmentFileRelativePath,
+                cancellationToken).ConfigureAwait(false);
+        }
+
         ConsoleReporter.Info($"Migrated config.yml to format version {EnvironmentConfiguration.CurrentFormatVersion}.");
     }
 

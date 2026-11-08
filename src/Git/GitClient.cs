@@ -257,6 +257,20 @@ public sealed class GitClient
         return result.ExitCode == 1;
     }
 
+    /// <summary>Determines whether a specific path has changes staged for commit.</summary>
+    /// <param name="relativePath">The repository-relative path to check.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    public async Task<bool> HasStagedChangesForFileAsync(string relativePath, CancellationToken cancellationToken = default)
+    {
+        GitCommandResult result = await this.RunAsync(["diff", "--cached", "--quiet", "--", relativePath], cancellationToken).ConfigureAwait(false);
+        if (result.ExitCode is not (0 or 1))
+        {
+            throw new GitCommandException($"diff --cached --quiet -- {relativePath}", result.ExitCode, result.StandardOutput, result.StandardError);
+        }
+
+        return result.ExitCode == 1;
+    }
+
     /// <summary>Stages the given path (relative to <see cref="WorkingDirectory"/>) for commit.</summary>
     /// <param name="relativePath">The repository-relative path to stage.</param>
     /// <param name="cancellationToken">A token to cancel the operation.</param>

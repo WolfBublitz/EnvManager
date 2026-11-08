@@ -97,6 +97,42 @@ public sealed class StartupConfigurationMigrationTests
     }
 
     [Test]
+    public async Task RestoringUncommittedSchemaMetadataDoesNotCommitUnrelatedStagedChanges()
+    {
+        DirectoryInfo root = CreateRoot();
+        try
+        {
+            string home = Directory.CreateDirectory(Path.Combine(root.FullName, "home")).FullName;
+            await InitializeHomeAsync(home);
+            string configPath = Path.Combine(home, ".EnvManager", "config.yml");
+            string originalYaml = File.ReadAllText(configPath);
+            string trackedPath = Path.Combine(home, "tracked.txt");
+            await File.WriteAllTextAsync(trackedPath, "original\n");
+            await RunGitSuccessAsync(home, "add", "--", "tracked.txt");
+            await RunGitSuccessAsync(home, "commit", "-m", "Seed tracked file");
+            string previousHead = await GetHeadAsync(home);
+
+            await File.WriteAllTextAsync(trackedPath, "staged change\n");
+            await RunGitSuccessAsync(home, "add", "--", "tracked.txt");
+            await File.WriteAllTextAsync(configPath, originalYaml.Replace(CurrentSchemaReference + "\n", string.Empty, StringComparison.Ordinal));
+
+            (int exitCode, string output) = await RunCliAsync(home, "settings", "list");
+
+            await Assert.That(exitCode).IsEqualTo(0);
+            await Assert.That(output).Contains("Migrated config.yml to format version 1.0.");
+            await Assert.That(File.ReadAllText(configPath)).IsEqualTo(originalYaml);
+            await Assert.That(await GetHeadAsync(home)).IsEqualTo(previousHead);
+            await Assert.That(await GetConfigurationStatusAsync(home)).IsEqualTo(string.Empty);
+            await Assert.That(await RunGitAsync(home, "diff", "--cached", "--name-only")).IsEqualTo("tracked.txt");
+            await Assert.That(await RunGitAsync(home, "show", ":tracked.txt")).IsEqualTo("staged change");
+        }
+        finally
+        {
+            Directory.Delete(root.FullName, recursive: true);
+        }
+    }
+
+    [Test]
     public async Task StartupRejectsUnsupportedFutureFormatWithoutChangingConfiguration()
     {
         DirectoryInfo root = CreateRoot();
