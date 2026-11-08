@@ -97,10 +97,13 @@ Track files located inside your home directory, such as dotfiles:
 EnvManager files add .gitconfig
 EnvManager files list
 EnvManager files remove .gitconfig
+EnvManager files edit
 ```
 
-Removing a file stops tracking it but leaves the local copy in place. These operations
-stage changes; run `EnvManager push` when you are ready to commit and publish them.
+`files edit` prompts for a tracked file and opens it in the executable configured by the
+`editor` setting (for example, `vim` or `code`). It requires an interactive terminal.
+Removing a file stops tracking it but leaves the local copy in place. File add and remove
+operations stage changes; run `EnvManager push` when you are ready to commit and publish them.
 
 ### Settings
 

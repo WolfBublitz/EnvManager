@@ -344,6 +344,7 @@ Syntax:
 Subcommands:
   add    Adds a new file or configuration to the repository.
   remove Removes an existing file or configuration from the repository.
+  edit   Selects a tracked file and opens it in the configured editor.
   list   Lists all files and configurations in the repository.
 ```
 
@@ -382,6 +383,16 @@ Removing a file stages it for removal without committing or deleting the local f
 Run `EnvManager push` to commit and publish the removal.
 When `file_name` is omitted, EnvManager prompts for a tracked file and asks for
 confirmation before staging its removal. This selection requires an interactive terminal.
+
+##### Edit Subcommand
+
+```bash
+Syntax:
+  EnvManager files edit
+```
+
+Prompts for a tracked file and opens it using the executable configured in the
+`editor` setting. This requires an interactive terminal and a configured editor.
 
 ##### List Subcommand
 
