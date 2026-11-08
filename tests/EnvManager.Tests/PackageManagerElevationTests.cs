@@ -113,6 +113,10 @@ public sealed class PackageManagerElevationTests
             string home = Directory.CreateDirectory(Path.Combine(root, "home")).FullName;
             string log = Path.Combine(root, "sudo.log");
             await RunSuccessAsync(home, bin, log, "init", "--environment", "main");
+            string git = (Environment.GetEnvironmentVariable("PATH") ?? string.Empty).Split(Path.PathSeparator)
+                .Select(directory => Path.Combine(directory, "git"))
+                .FirstOrDefault(File.Exists) ?? throw new InvalidOperationException("git was not found on PATH.");
+            File.CreateSymbolicLink(Path.Combine(bin, "git"), git);
             (int exitCode, string output) = await RunAsync(home, bin, log, false, "tools", "add", "example", "-p", "apt");
             await Assert.That(exitCode).IsNotEqualTo(0);
             await Assert.That(output).Contains("sudo was not found");
