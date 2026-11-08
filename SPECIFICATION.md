@@ -482,6 +482,32 @@ mismatches shall be reported without replacing the existing executable.
 The command shall require direct invocation of the installed EnvManager executable and
 shall not attempt to replace a .NET host process.
 
+#### Downgrade Command
+
+```bash
+Description:
+  Selects and installs an earlier EnvManager release compatible with the current platform.
+
+Syntax:
+  EnvManager downgrade [--version <version>]
+
+Options:
+  --version <version>    Install this available earlier version without prompting.
+```
+
+The command shall compare GitHub release semantic versions with the running version
+and consider only earlier releases that contain the current platform's executable.
+If there is one earlier compatible release, it shall be selected automatically. If
+there are multiple, an interactive terminal shall display a selection list;
+noninteractive invocation shall require `--version`. The downloaded release asset
+shall be validated against its published SHA-256 digest before replacing the current
+executable. On Windows, where the running executable cannot be replaced in place,
+replacement shall be scheduled after the process exits. Unsupported platforms,
+unavailable versions, download failures, and digest mismatches shall be reported
+without replacing the existing executable. The command shall require direct invocation
+of the installed EnvManager executable and shall not attempt to replace a .NET host
+process.
+
 ## Features
 
 ### Shells
