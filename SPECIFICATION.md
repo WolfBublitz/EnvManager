@@ -105,6 +105,11 @@ All subsequent Git operations for managing environment configurations will be pe
 git --git-dir=$HOME/.EnvManager/repo --work-tree=$HOME [command]
 ```
 
+On configuration saves, all changes under the supported shell directories in
+`$HOME/.EnvManager` shall be staged with the configuration. Files elsewhere under
+`$HOME/.EnvManager` may be staged through `files add`, except anything under the internal
+`$HOME/.EnvManager/repo` Git directory, which shall not be added or removed as a user file.
+
 EnvManager shall move all files that might be overwritten by the environment configuration to a safe location before checking out a new branch.
 
 ### Errors

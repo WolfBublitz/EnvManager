@@ -59,6 +59,52 @@ public sealed class ShellEnvironmentIntegrationTests
         }
     }
 
+    [Test]
+    public async Task ConfigurationSavesStageAllShellDirectoryChangesButExcludeTheInternalRepository()
+    {
+        DirectoryInfo root = CreateRoot();
+        try
+        {
+            string home = Directory.CreateDirectory(Path.Combine(root.FullName, "home")).FullName;
+            string remote = Path.Combine(root.FullName, "remote.git");
+            await RunGitSuccessAsync(root.FullName, "init", "--bare", "--initial-branch=main", remote);
+            await RunEnvSuccessAsync(home, "init", "--environment", "main");
+
+            string bashDirectory = Path.Combine(home, ".EnvManager", "bash");
+            string fishDirectory = Path.Combine(home, ".EnvManager", "fish", "nested");
+            string internalDirectory = Path.Combine(home, ".EnvManager", "repo");
+            Directory.CreateDirectory(bashDirectory);
+            Directory.CreateDirectory(fishDirectory);
+            File.WriteAllText(Path.Combine(bashDirectory, "custom.sh"), "export CUSTOM='bash'");
+            File.WriteAllText(Path.Combine(fishDirectory, "custom.fish"), "set CUSTOM fish");
+            File.WriteAllText(Path.Combine(internalDirectory, "not-a-work-tree-file"), "internal");
+
+            string gitDirectory = Path.Combine(home, ".EnvManager", "repo");
+            await RunGitSuccessAsync(home, $"--git-dir={gitDirectory}", "remote", "add", "origin", remote);
+            await RunEnvSuccessAsync(home, "shells", "add", "bash", "--yes");
+
+            string trackedFiles = await RunGitSuccessAsync(home, $"--git-dir={gitDirectory}", "ls-tree", "-r", "--name-only", "HEAD");
+            await Assert.That(trackedFiles).Contains(".EnvManager/bash/custom.sh");
+            await Assert.That(trackedFiles).Contains(".EnvManager/bash/00-envmanager-variables.sh");
+            await Assert.That(trackedFiles).Contains(".EnvManager/fish/nested/custom.fish");
+            await Assert.That(trackedFiles).DoesNotContain(".EnvManager/repo/not-a-work-tree-file");
+
+            File.Delete(Path.Combine(fishDirectory, "custom.fish"));
+            File.WriteAllText(Path.Combine(bashDirectory, "custom.sh"), "export CUSTOM='updated'");
+            await RunEnvSuccessAsync(home, "variable", "set", "VERSIONED", "yes");
+
+            trackedFiles = await RunGitSuccessAsync(home, $"--git-dir={gitDirectory}", "ls-tree", "-r", "--name-only", "HEAD");
+            await Assert.That(trackedFiles).DoesNotContain(".EnvManager/fish/nested/custom.fish");
+            await Assert.That(await RunGitSuccessAsync(home, $"--git-dir={gitDirectory}", "show", "HEAD:.EnvManager/bash/custom.sh"))
+                .IsEqualTo("export CUSTOM='updated'");
+            await Assert.That(trackedFiles).DoesNotContain(".EnvManager/repo/not-a-work-tree-file");
+        }
+        finally
+        {
+            Directory.Delete(root.FullName, recursive: true);
+        }
+    }
+
     private static DirectoryInfo CreateRoot()
     {
         DirectoryInfo root = new(Path.Combine(Path.GetTempPath(), $"EnvManager-ShellEnvironmentIntegration-{Guid.NewGuid():N}"));

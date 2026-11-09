@@ -17,7 +17,7 @@ namespace EnvManager.Tests;
 public sealed class FilesAddCommandTests
 {
     [Test]
-    public async Task AddRejectsGeneratedVariableExportFiles()
+    public async Task AddStagesGeneratedVariableExportFiles()
     {
         DirectoryInfo root = CreateRoot();
         try
@@ -28,16 +28,11 @@ public sealed class FilesAddCommandTests
             Directory.CreateDirectory(Path.GetDirectoryName(generatedPath)!);
             File.WriteAllText(generatedPath, "export VALUE='managed'");
 
-            await Assert.That(async () => await RunAsync(
-                home,
-                "dotnet",
-                typeof(Program).Assembly.Location,
-                "files",
-                "add",
-                ".EnvManager/bash/00-envmanager-variables.sh")).Throws<InvalidOperationException>();
+            await RunAsync(home, "dotnet", typeof(Program).Assembly.Location, "files", "add", ".EnvManager/bash/00-envmanager-variables.sh");
 
             string gitDirectory = Path.Combine(home, ".EnvManager", "repo");
-            await Assert.That(await RunAsync(home, "git", $"--git-dir={gitDirectory}", "diff", "--cached", "--name-only")).IsEqualTo(string.Empty);
+            await Assert.That(await RunAsync(home, "git", $"--git-dir={gitDirectory}", "show", ":.EnvManager/bash/00-envmanager-variables.sh"))
+                .IsEqualTo("export VALUE='managed'");
         }
         finally
         {
@@ -66,6 +61,57 @@ public sealed class FilesAddCommandTests
             await Assert.That(await RunAsync(home, "git", $"--git-dir={gitDir}", "show", ":other")).IsEqualTo("previously staged");
             string listing = await RunAsync(home, "dotnet", typeof(Program).Assembly.Location, "files", "list");
             await Assert.That(listing).Contains("settings");
+        }
+        finally
+        {
+            Directory.Delete(root.FullName, recursive: true);
+        }
+    }
+
+    [Test]
+    public async Task AddStagesFilesElsewhereInsideEnvManager()
+    {
+        DirectoryInfo root = CreateRoot();
+        try
+        {
+            string home = Directory.CreateDirectory(Path.Combine(root.FullName, "home")).FullName;
+            await RunAsync(home, "dotnet", typeof(Program).Assembly.Location, "init", "--environment", "main");
+            string filePath = Path.Combine(home, ".EnvManager", "custom", "settings.yml");
+            Directory.CreateDirectory(Path.GetDirectoryName(filePath)!);
+            File.WriteAllText(filePath, "custom: true");
+
+            await RunAsync(home, "dotnet", typeof(Program).Assembly.Location, "files", "add", ".EnvManager/custom/settings.yml");
+
+            string gitDirectory = Path.Combine(home, ".EnvManager", "repo");
+            await Assert.That(await RunAsync(home, "git", $"--git-dir={gitDirectory}", "show", ":.EnvManager/custom/settings.yml")).IsEqualTo("custom: true");
+        }
+        finally
+        {
+            Directory.Delete(root.FullName, recursive: true);
+        }
+    }
+
+    [Test]
+    public async Task AddRejectsFilesInsideInternalGitRepository()
+    {
+        DirectoryInfo root = CreateRoot();
+        try
+        {
+            string home = Directory.CreateDirectory(Path.Combine(root.FullName, "home")).FullName;
+            await RunAsync(home, "dotnet", typeof(Program).Assembly.Location, "init", "--environment", "main");
+            string gitDirectory = Path.Combine(home, ".EnvManager", "repo");
+            string internalFilePath = Path.Combine(gitDirectory, "not-a-work-tree-file");
+            File.WriteAllText(internalFilePath, "internal");
+
+            await Assert.That(async () => await RunAsync(
+                home,
+                "dotnet",
+                typeof(Program).Assembly.Location,
+                "files",
+                "add",
+                ".EnvManager/repo/not-a-work-tree-file")).Throws<InvalidOperationException>();
+
+            await Assert.That(await RunAsync(home, "git", $"--git-dir={gitDirectory}", "diff", "--cached", "--name-only")).IsEqualTo(string.Empty);
         }
         finally
         {

@@ -27,6 +27,10 @@ internal static class ShellEnvironmentExporter
         ["cmd"] = "00-envmanager-variables.cmd",
     };
 
+    /// <summary>Gets the home-relative directories containing supported shell files.</summary>
+    public static IEnumerable<string> ShellDirectoryRelativePaths
+        => GeneratedFileNames.Keys.Select(shellName => $".EnvManager/{shellName}");
+
     /// <summary>Validates that a variable name is portable across supported shells.</summary>
     /// <param name="name">The environment variable name.</param>
     /// <exception cref="ConfigurationException">The name is not a portable identifier.</exception>
@@ -37,22 +41,6 @@ internal static class ShellEnvironmentExporter
         {
             throw new ConfigurationException($"'{name}' is not a valid environment variable name. Use ASCII letters, digits, and underscores, beginning with a letter or underscore.");
         }
-    }
-
-    /// <summary>Determines whether a home-relative path is an EnvManager-generated export file.</summary>
-    /// <param name="relativePath">A forward-slash-separated path relative to the home directory.</param>
-    /// <returns><see langword="true"/> when the path is maintained by EnvManager.</returns>
-    public static bool IsGeneratedExportPath(string relativePath)
-    {
-        StringComparison comparison = OperatingSystem.IsWindows() || OperatingSystem.IsMacOS()
-            ? StringComparison.OrdinalIgnoreCase
-            : StringComparison.Ordinal;
-
-        return GeneratedFileNames.Any(pair =>
-            string.Equals(
-                relativePath,
-                $".EnvManager/{pair.Key}/{pair.Value}",
-                comparison));
     }
 
     /// <summary>Synchronizes generated exports for shells available on the current operating system.</summary>
