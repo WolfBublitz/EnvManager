@@ -230,14 +230,14 @@ public sealed class EnvironmentRepository
         => this.Git.ListEnvironmentsAsync(cancellationToken);
 
     /// <summary>
-    /// Stages an existing file from the home directory for the currently checked-out
-    /// environment without committing it.
+    /// Stages an existing file from the current working directory for the currently
+    /// checked-out environment without committing it.
     /// </summary>
-    /// <param name="fileName">The file to add, relative to (or an absolute path inside) the home directory.</param>
+    /// <param name="fileName">The file to add, relative to the current working directory or an absolute path inside the home directory.</param>
     /// <param name="cancellationToken">A token to cancel the operation.</param>
     public async Task AddFileAsync(string fileName, CancellationToken cancellationToken = default)
     {
-        string relativePath = ResolveRelativePath(fileName);
+        string relativePath = ResolveRelativePath(fileName, Environment.CurrentDirectory);
         string fullPath = Path.Combine(EnvManagerPaths.HomeDirectory.FullName, relativePath);
 
         if (!File.Exists(fullPath))
@@ -256,7 +256,7 @@ public sealed class EnvironmentRepository
     /// <param name="cancellationToken">A token to cancel the operation.</param>
     public async Task RemoveFileAsync(string fileName, CancellationToken cancellationToken = default)
     {
-        string relativePath = ResolveRelativePath(fileName);
+        string relativePath = ResolveRelativePath(fileName, EnvManagerPaths.HomeDirectory.FullName);
 
         if (!await this.Git.IsTrackedAsync(relativePath, cancellationToken).ConfigureAwait(false))
         {
@@ -343,21 +343,24 @@ public sealed class EnvironmentRepository
     // └────────────────────────────────────────────────────────────────────────────────┘
 
     /// <summary>
-    /// Resolves a user-supplied file name (relative to the home directory, or an
-    /// absolute path) to a path relative to <see cref="EnvManagerPaths.HomeDirectory"/>,
+    /// Resolves a user-supplied file name (relative to the provided base directory, or
+    /// an absolute path) to a path relative to <see cref="EnvManagerPaths.HomeDirectory"/>,
     /// using forward slashes as git expects.
     /// </summary>
     /// <param name="fileName">The file name or path supplied by the user.</param>
+    /// <param name="baseDirectory">The directory used to resolve relative paths.</param>
     /// <exception cref="ConfigurationException">
     /// Thrown when the resolved path falls outside of the home directory.
     /// </exception>
-    private static string ResolveRelativePath(string fileName)
+    private static string ResolveRelativePath(string fileName, string baseDirectory)
     {
-        string homeDirectory = EnvManagerPaths.HomeDirectory.FullName;
+        string homeDirectory = ResolveDirectoryPath(EnvManagerPaths.HomeDirectory.FullName);
 
         string fullPath = Path.IsPathRooted(fileName)
             ? Path.GetFullPath(fileName)
-            : Path.GetFullPath(Path.Combine(homeDirectory, fileName));
+            : Path.GetFullPath(Path.Combine(ResolveDirectoryPath(baseDirectory), fileName));
+        string containingDirectory = Path.GetDirectoryName(fullPath)!;
+        fullPath = Path.Combine(ResolveDirectoryPath(containingDirectory), Path.GetFileName(fullPath));
 
         string relativePath = Path.GetRelativePath(homeDirectory, fullPath);
 

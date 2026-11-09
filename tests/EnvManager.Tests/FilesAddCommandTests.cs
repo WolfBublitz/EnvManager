@@ -213,10 +213,13 @@ public sealed class FilesAddCommandTests
     }
 
     private static async Task<string> RunAsync(string home, string executable, params string[] arguments)
+        => await RunFromAsync(home, home, executable, arguments);
+
+    private static async Task<string> RunFromAsync(string workingDirectory, string home, string executable, params string[] arguments)
     {
         ProcessStartInfo startInfo = new(executable)
         {
-            WorkingDirectory = home,
+            WorkingDirectory = workingDirectory,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false,

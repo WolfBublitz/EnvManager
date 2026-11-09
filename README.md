@@ -333,14 +333,15 @@ after you have reviewed the repository.
 ### Files
 
 ```bash
-EnvManager files add <file_name>      # Track a file from your home directory
+EnvManager files add <file_name>      # Track a file relative to the current directory
 EnvManager files remove [file_name]   # Stop tracking a file (left in place on disk)
 EnvManager files edit                 # Choose and open a tracked file in the configured editor
 EnvManager files list                 # List all files tracked for the current environment
 ```
 
-`file_name` is resolved relative to your home directory (or as an absolute path inside
-it); paths outside the home directory are rejected.
+For `files add`, `file_name` is resolved relative to the current working directory (or
+as an absolute path inside your home directory); paths outside the home directory are
+rejected.
 When `file_name` is omitted, EnvManager prompts you to select a tracked file and asks
 for confirmation before staging its removal. This interactive mode requires a terminal.
 `files edit` also requires a terminal and uses the `editor` setting as the editor
