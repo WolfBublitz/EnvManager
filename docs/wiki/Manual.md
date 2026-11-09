@@ -91,7 +91,9 @@ so review a configuration repository before trusting it.
 
 ### Files
 
-Track files located inside your home directory, such as dotfiles:
+Track files located inside your home directory, such as dotfiles. `files add` resolves
+relative paths from the current working directory; absolute paths inside your home
+directory are also accepted:
 
 ```bash
 EnvManager files add .gitconfig

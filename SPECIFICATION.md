@@ -358,10 +358,13 @@ Syntax:
   EnvManager files add [file_name]
 
 Arguments:
-  file_name    The name of the file to add.
+  file_name    The path of the file to add, relative to the current working directory
+               (or an absolute path inside the home directory).
 ```
 
-Adding a file stages it without committing or pushing. Run `EnvManager push` to
+Relative paths are resolved from the current working directory. The resolved file must
+be inside the home directory, which is the repository's work tree. Adding a file stages
+it without committing or pushing. Run `EnvManager push` to
 commit and publish staged changes. A remote is not required to add a file.
 Other commands that create commits, including configuration updates and `shells add`,
 can include already staged file changes.

@@ -74,6 +74,28 @@ public sealed class FilesAddCommandTests
     }
 
     [Test]
+    public async Task AddResolvesRelativePathFromCurrentWorkingDirectory()
+    {
+        DirectoryInfo root = CreateRoot();
+        try
+        {
+            string home = Directory.CreateDirectory(Path.Combine(root.FullName, "home")).FullName;
+            string workingDirectory = Directory.CreateDirectory(Path.Combine(home, "projects", "my-app")).FullName;
+            await RunAsync(home, "dotnet", typeof(Program).Assembly.Location, "init", "--environment", "main");
+            string gitDir = Path.Combine(home, ".EnvManager", "repo");
+            File.WriteAllText(Path.Combine(workingDirectory, "settings"), "project settings");
+
+            await RunFromAsync(workingDirectory, home, "dotnet", typeof(Program).Assembly.Location, "files", "add", "settings");
+
+            await Assert.That(await RunAsync(home, "git", $"--git-dir={gitDir}", "show", ":projects/my-app/settings")).IsEqualTo("project settings");
+        }
+        finally
+        {
+            Directory.Delete(root.FullName, recursive: true);
+        }
+    }
+
+    [Test]
     public async Task PushCommitsStagedAddAndRemoveWithoutRestoringRemovedFile()
     {
         DirectoryInfo root = CreateRoot();
@@ -167,10 +189,13 @@ public sealed class FilesAddCommandTests
     }
 
     private static async Task<string> RunAsync(string home, string executable, params string[] arguments)
+        => await RunFromAsync(home, home, executable, arguments);
+
+    private static async Task<string> RunFromAsync(string workingDirectory, string home, string executable, params string[] arguments)
     {
         ProcessStartInfo startInfo = new(executable)
         {
-            WorkingDirectory = home,
+            WorkingDirectory = workingDirectory,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false,
