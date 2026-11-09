@@ -27,7 +27,7 @@ public sealed class FilesAddCommand : Command
     {
         Argument<string> fileNameArgument = new("file_name")
         {
-            Description = "The name of the file to add, relative to the home directory (or an absolute path within it).",
+            Description = "The path of the file to add, relative to the current working directory (or an absolute path inside the home directory).",
         };
 
         this.Add(fileNameArgument);
