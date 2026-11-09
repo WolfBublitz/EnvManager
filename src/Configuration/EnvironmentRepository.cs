@@ -379,7 +379,8 @@ public sealed class EnvironmentRepository
             throw new ConfigurationException($"'{EnvManagerPaths.EnvironmentFileRelativePath}' is managed internally and cannot be added or removed as a user file.");
         }
 
-        string gitDirectoryRelativePath = Path.GetRelativePath(homeDirectory, EnvManagerPaths.GitDirectory.FullName)
+        string gitDirectoryPath = ResolveDirectoryPath(EnvManagerPaths.GitDirectory.FullName);
+        string gitDirectoryRelativePath = Path.GetRelativePath(homeDirectory, gitDirectoryPath)
             .Replace(Path.DirectorySeparatorChar, '/');
         if (string.Equals(gitRelativePath, gitDirectoryRelativePath, comparison)
             || gitRelativePath.StartsWith($"{gitDirectoryRelativePath}/", comparison))
@@ -388,6 +389,27 @@ public sealed class EnvironmentRepository
         }
 
         return gitRelativePath;
+    }
+
+    private static string ResolveDirectoryPath(string path)
+    {
+        string fullPath = Path.GetFullPath(path);
+        string root = Path.GetPathRoot(fullPath)!;
+        string currentPath = root;
+
+        foreach (string segment in fullPath[root.Length..].Split(
+            [Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar],
+            StringSplitOptions.RemoveEmptyEntries))
+        {
+            string nextPath = Path.Combine(currentPath, segment);
+            DirectoryInfo directory = new(nextPath);
+            FileSystemInfo? target = Directory.Exists(nextPath)
+                ? directory.ResolveLinkTarget(returnFinalTarget: true)
+                : null;
+            currentPath = target?.FullName ?? nextPath;
+        }
+
+        return Path.GetFullPath(currentPath);
     }
 
     private async Task StageShellDirectoryChangesAsync(CancellationToken cancellationToken)
