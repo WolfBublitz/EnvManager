@@ -344,6 +344,12 @@ public sealed class GitClient
     public Task StageTrackedChangesAsync(CancellationToken cancellationToken = default)
         => this.RunOrThrowAsync(["add", "--update"], cancellationToken);
 
+    /// <summary>Stages additions, modifications, and deletions under the specified work-tree path.</summary>
+    /// <param name="relativePath">The repository-relative directory or path to stage.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    public Task StageDirectoryChangesAsync(string relativePath, CancellationToken cancellationToken = default)
+        => this.RunOrThrowAsync(["add", "--all", "--", relativePath], cancellationToken);
+
     /// <summary>
     /// Lists pending changes to tracked files as <c>(status, path)</c> pairs, where status is
     /// <c>A</c>, <c>M</c> or <c>D</c>. Untracked files are not included.

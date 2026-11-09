@@ -317,13 +317,16 @@ If no remote is configured or the push fails, the local commit remains; configur
 repair the remote and run `EnvManager push` to retry. Already tracked profile files
 are not staged again, but any changes already staged are included in the commit.
 Shell-specific files loaded by the profile
-shims belong in `$HOME/.EnvManager/<shell>/` and can be versioned with `files add`: use
+shims belong in `$HOME/.EnvManager/<shell>/` and are staged automatically with configuration
+changes. Other files under `$HOME/.EnvManager/` can be versioned with `files add`; files under
+`$HOME/.EnvManager/repo/` are EnvManager's internal Git database and cannot be added or removed.
+Use
 `.sh` files for bash/zsh, `.fish` for fish, and `.ps1` for PowerShell.
 Profile installation stages replacement files and the migrated profile, and rolls back
 profile changes if an installation step fails. Configured variable exports are generated in the corresponding
 shell directory and loaded on the next shell start; changes do not modify already-running
-processes. Generated export files are maintained by EnvManager and should not be added
-separately with `files add`. Enabling a shell prompts you to trust the repository because
+processes. Generated export files are maintained by EnvManager and staged with other shell
+files; they can also be explicitly staged with `files add`. Enabling a shell prompts you to trust the repository because
 its scripts will run at shell startup; `shells add --yes` bypasses this confirmation only
 after you have reviewed the repository.
 
