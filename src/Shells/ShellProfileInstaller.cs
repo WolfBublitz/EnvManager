@@ -7,6 +7,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Text.RegularExpressions;
 
 using EnvManager.Exceptions;
 
@@ -84,7 +85,8 @@ internal sealed class ShellProfileInstaller
         List<byte[]> addonContentBytes = [];
         FileInfo migratedAddonFile = new(Path.Combine(this.homeDirectory.FullName, ".EnvManager", normalizedName, $"00_Profile{shellProfile.AddonExtension}"));
         FileInfo pathAddonFile = new(Path.Combine(this.homeDirectory.FullName, ".EnvManager", normalizedName, $"01_EnvManager{shellProfile.AddonExtension}"));
-        string pathAddonContent = GetPathAddonContent(normalizedName);
+        bool hasProfileAlias = this.HasEnvManagerAlias(normalizedName, shellProfile, includePathAddon: false);
+        string pathAddonContent = GetPathAddonContent(normalizedName, includeAlias: !hasProfileAlias);
 
         foreach (string relativePath in shellProfile.ShellProfilePaths)
         {
@@ -116,7 +118,14 @@ internal sealed class ShellProfileInstaller
         if (pathAddonFile.Exists
             && !string.Equals(File.ReadAllText(pathAddonFile.FullName), pathAddonContent, StringComparison.Ordinal))
         {
-            throw new ConfigurationException($"EnvManager addon file '{pathAddonFile.FullName}' was modified. Preserve or restore it before reinstalling shell integration.");
+            string pathOnlyContent = GetPathAddonContent(normalizedName, includeAlias: false);
+            string aliasContent = GetPathAddonContent(normalizedName, includeAlias: true);
+            string existingPathAddonContent = File.ReadAllText(pathAddonFile.FullName);
+            if (!string.Equals(existingPathAddonContent, pathOnlyContent, StringComparison.Ordinal)
+                && !string.Equals(existingPathAddonContent, aliasContent, StringComparison.Ordinal))
+            {
+                throw new ConfigurationException($"EnvManager addon file '{pathAddonFile.FullName}' was modified. Preserve or restore it before reinstalling shell integration.");
+            }
         }
 
         string? addonTemporaryFile = null;
@@ -135,13 +144,14 @@ internal sealed class ShellProfileInstaller
             }
 
             Directory.CreateDirectory(Path.Combine(this.homeDirectory.FullName, ".EnvManager", normalizedName));
-            if (!pathAddonFile.Exists)
+            if (!pathAddonFile.Exists
+                || !string.Equals(File.ReadAllText(pathAddonFile.FullName), pathAddonContent, StringComparison.Ordinal))
             {
                 string envManagerDirectory = pathAddonFile.DirectoryName
                     ?? throw new IOException($"Could not determine the addon directory for '{pathAddonFile.FullName}'.");
                 Directory.CreateDirectory(envManagerDirectory);
                 string temporaryFile = Path.Combine(envManagerDirectory, $".{pathAddonFile.Name}.{Guid.NewGuid():N}.tmp");
-                shellProfileFiles.Add((pathAddonFile, false, []));
+                shellProfileFiles.Add((pathAddonFile, pathAddonFile.Exists, pathAddonFile.Exists ? File.ReadAllBytes(pathAddonFile.FullName) : []));
                 stagedFiles.Add((pathAddonFile, temporaryFile));
                 File.WriteAllText(temporaryFile, pathAddonContent);
             }
@@ -246,7 +256,7 @@ internal sealed class ShellProfileInstaller
         List<(FileInfo ShellProfileFile, FileInfo BackupFile)> shellProfileFiles = [];
         FileInfo pathAddonFile = new(Path.Combine(this.homeDirectory.FullName, ".EnvManager", normalizedName, $"01_EnvManager{shellProfile.AddonExtension}"));
         if (pathAddonFile.Exists
-            && !string.Equals(File.ReadAllText(pathAddonFile.FullName), GetPathAddonContent(normalizedName), StringComparison.Ordinal))
+            && !IsExpectedPathAddonContent(normalizedName, File.ReadAllText(pathAddonFile.FullName)))
         {
             throw new ConfigurationException($"EnvManager addon file '{pathAddonFile.FullName}' has changed since EnvManager installed it. It was left untouched.");
         }
@@ -311,12 +321,129 @@ internal sealed class ShellProfileInstaller
     }
 
     private static string GetPathAddonContent(string shellName)
+        => GetPathAddonContent(shellName, includeAlias: true);
+
+    private static string GetPathAddonContent(string shellName, bool includeAlias)
         => shellName switch
         {
-            "bash" or "zsh" => "export PATH=\"$HOME/.local/bin:$PATH\"\n",
-            "fish" => "set -gx PATH \"$HOME/.local/bin\" $PATH\n",
-            "powershell" => "$env:PATH = \"$HOME/.local/bin$([IO.Path]::PathSeparator)$env:PATH\"\n",
-            "cmd" => "set PATH=%USERPROFILE%\\.local\\bin;%PATH%\n",
+            "bash" or "zsh" => $"export PATH=\"$HOME/.local/bin:$PATH\"\n{(includeAlias ? "alias em='EnvManager'\n" : string.Empty)}",
+            "fish" => $"set -gx PATH \"$HOME/.local/bin\" $PATH\n{(includeAlias ? "alias em EnvManager\n" : string.Empty)}",
+            "powershell" => $"$env:PATH = \"$HOME/.local/bin$([IO.Path]::PathSeparator)$env:PATH\"\n{(includeAlias ? "Set-Alias -Name em -Value EnvManager\n" : string.Empty)}",
+            "cmd" => $"set PATH=%USERPROFILE%\\.local\\bin;%PATH%\n{(includeAlias ? "doskey em=EnvManager $*\n" : string.Empty)}",
+            _ => throw new ConfigurationException($"Unsupported shell '{shellName}'."),
+        };
+
+    /// <summary>Adds the EnvManager alias to a configured shell when it is missing.</summary>
+    /// <param name="shellName">A supported shell name.</param>
+    /// <returns>The home-relative addon path when the addon changed; otherwise, <see langword="null"/>.</returns>
+    public string? EnsureEnvManagerAlias(string shellName)
+    {
+        string normalizedName = this.NormalizeShellName(shellName);
+        ShellProfileDefinition shellProfile = this.GetShellProfileDefinition(normalizedName);
+
+        if (this.HasEnvManagerAlias(normalizedName, shellProfile, includePathAddon: true))
+        {
+            return null;
+        }
+
+        FileInfo pathAddonFile = new(Path.Combine(this.homeDirectory.FullName, ".EnvManager", normalizedName, $"01_EnvManager{shellProfile.AddonExtension}"));
+        string expectedPathOnlyContent = GetPathAddonContent(normalizedName, includeAlias: false);
+        string aliasContent = GetAliasContent(normalizedName);
+        string migratedContent;
+
+        if (!pathAddonFile.Exists)
+        {
+            migratedContent = GetPathAddonContent(normalizedName, includeAlias: true);
+        }
+        else
+        {
+            string existingContent = File.ReadAllText(pathAddonFile.FullName);
+            if (!string.Equals(existingContent, expectedPathOnlyContent, StringComparison.Ordinal))
+            {
+                throw new ConfigurationException($"EnvManager addon file '{pathAddonFile.FullName}' was modified. Preserve or restore it before migrating the shell alias.");
+            }
+
+            migratedContent = existingContent + aliasContent;
+        }
+
+        string addonDirectory = pathAddonFile.DirectoryName
+            ?? throw new IOException($"Could not determine the addon directory for '{pathAddonFile.FullName}'.");
+        Directory.CreateDirectory(addonDirectory);
+        string temporaryFile = Path.Combine(addonDirectory, $".{pathAddonFile.Name}.{Guid.NewGuid():N}.tmp");
+        try
+        {
+            File.WriteAllText(temporaryFile, migratedContent);
+            File.Move(temporaryFile, pathAddonFile.FullName, overwrite: true);
+        }
+        finally
+        {
+            File.Delete(temporaryFile);
+        }
+
+        return Path.Combine(".EnvManager", normalizedName, pathAddonFile.Name)
+            .Replace(Path.DirectorySeparatorChar, '/');
+    }
+
+    private bool HasEnvManagerAlias(string shellName, ShellProfileDefinition shellProfile, bool includePathAddon)
+    {
+        foreach (string relativePath in shellProfile.ShellProfilePaths)
+        {
+            FileInfo profileFile = new(Path.Combine(this.homeDirectory.FullName, relativePath));
+            if (profileFile.Exists && HasEnvManagerAlias(shellName, File.ReadAllText(profileFile.FullName)))
+            {
+                return true;
+            }
+        }
+
+        DirectoryInfo shellDirectory = new(Path.Combine(this.homeDirectory.FullName, ".EnvManager", shellName));
+        if (!shellDirectory.Exists)
+        {
+            return false;
+        }
+
+        foreach (string filePath in Directory.EnumerateFiles(shellDirectory.FullName, $"*{shellProfile.AddonExtension}"))
+        {
+            FileInfo addonFile = new(filePath);
+            if (!includePathAddon && string.Equals(addonFile.Name, $"01_EnvManager{shellProfile.AddonExtension}", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            if (HasEnvManagerAlias(shellName, File.ReadAllText(addonFile.FullName)))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool HasEnvManagerAlias(string shellName, string content)
+    {
+        string pattern = shellName switch
+        {
+            "bash" or "zsh" => @"^\s*alias\s+em\s*=",
+            "fish" => @"^\s*alias\s+em(?:\s|$)",
+            "powershell" => @"^\s*(?:Set-Alias|New-Alias)\b(?:\s+-Name\s+em\b|\s+em\b)",
+            "cmd" => @"^\s*doskey\s+em\s*=",
+            _ => throw new ConfigurationException($"Unsupported shell '{shellName}'."),
+        };
+        RegexOptions options = RegexOptions.Multiline | (shellName is "powershell" or "cmd" ? RegexOptions.IgnoreCase : RegexOptions.None);
+
+        return Regex.IsMatch(content, pattern, options);
+    }
+
+    private static bool IsExpectedPathAddonContent(string shellName, string content)
+        => string.Equals(content, GetPathAddonContent(shellName, includeAlias: false), StringComparison.Ordinal)
+            || string.Equals(content, GetPathAddonContent(shellName, includeAlias: true), StringComparison.Ordinal);
+
+    private static string GetAliasContent(string shellName)
+        => shellName switch
+        {
+            "bash" or "zsh" => "alias em='EnvManager'\n",
+            "fish" => "alias em EnvManager\n",
+            "powershell" => "Set-Alias -Name em -Value EnvManager\n",
+            "cmd" => "doskey em=EnvManager $*\n",
             _ => throw new ConfigurationException($"Unsupported shell '{shellName}'."),
         };
 
