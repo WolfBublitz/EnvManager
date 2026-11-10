@@ -152,6 +152,7 @@ envmanager:
     add:    # Adds a new file or configuration (to the repository)
     remove: # Removes an existing file or configuration (from the repository)
     list:   # Lists all files and configurations (in the repository).
+    copy-to-environment: # Copies a tracked file to another environment branch.
   push:     # Pushes the current environment configuration to the remote repository.
   pull:     # Pulls the latest environment configuration from the remote repository.
   switch:   # Switches to a different environment configuration.
@@ -351,6 +352,7 @@ Subcommands:
   remove Removes an existing file or configuration from the repository.
   edit   Selects a tracked file and opens it in the configured editor.
   list   Lists all files and configurations in the repository.
+  copy-to-environment Copies a tracked file to another environment.
 ```
 
 ##### Add Subcommand
@@ -401,6 +403,21 @@ Syntax:
 
 Prompts for a tracked file and opens it using the executable configured in the
 `editor` setting. This requires an interactive terminal and a configured editor.
+
+##### Copy-to-Environment Subcommand
+
+```bash
+Description:
+  Copies a tracked file to another environment.
+
+Syntax:
+  EnvManager files copy-to-environment
+```
+
+Prompts for a tracked file and a different known environment. The file's current
+working-tree contents are committed on the target branch without switching the active
+environment or changing its working tree. Switch to the target environment and run
+`EnvManager push` to publish the copy. This requires an interactive terminal.
 
 ##### List Subcommand
 

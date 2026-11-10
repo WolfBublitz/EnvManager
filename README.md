@@ -338,6 +338,7 @@ EnvManager files add <file_name>      # Track a file relative to the current dir
 EnvManager files remove [file_name]   # Stop tracking a file (left in place on disk)
 EnvManager files edit                 # Choose and open a tracked file in the configured editor
 EnvManager files list                 # List all files tracked for the current environment
+EnvManager files copy-to-environment  # Copy a tracked file to another environment branch
 ```
 
 For `files add`, `file_name` is resolved relative to the current working directory (or
@@ -347,6 +348,10 @@ When `file_name` is omitted, EnvManager prompts you to select a tracked file and
 for confirmation before staging its removal. This interactive mode requires a terminal.
 `files edit` also requires a terminal and uses the `editor` setting as the editor
 executable (for example, `vim` or `code`).
+`files copy-to-environment` requires a terminal, prompts for a tracked file and another
+known environment, and commits the file's current contents on that target branch without
+switching the active environment or changing its working tree. Switch to the target
+environment and run `EnvManager push` to publish the copy.
 
 `files add` and `files remove` stage their changes without committing or requiring a
 remote; removal leaves the local file in place. Run `EnvManager push` when you are

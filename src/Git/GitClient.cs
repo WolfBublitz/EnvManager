@@ -314,6 +314,73 @@ public sealed class GitClient
     }
 
     /// <summary>
+    /// Commits the current work-tree contents of a tracked file to another branch,
+    /// leaving the active branch, index, and work tree unchanged.
+    /// </summary>
+    /// <param name="relativePath">The tracked file path relative to <see cref="WorkingDirectory"/>.</param>
+    /// <param name="branch">The target branch.</param>
+    /// <param name="cancellationToken">A token that cancels the operation.</param>
+    /// <returns><see langword="true"/> if a commit was created; otherwise, <see langword="false"/> if the contents already matched.</returns>
+    /// <exception cref="GitCommandException">The file is not tracked, the branch does not exist, or a Git operation fails.</exception>
+    public async Task<bool> CopyFileToBranchAsync(string relativePath, string branch, CancellationToken cancellationToken = default)
+    {
+        if (!await this.IsTrackedAsync(relativePath, cancellationToken).ConfigureAwait(false))
+        {
+            throw new GitCommandException($"ls-files --error-unmatch -- {relativePath}", 1, string.Empty, $"File '{relativePath}' is not tracked.");
+        }
+
+        if (!await this.BranchExistsLocallyAsync(branch, cancellationToken).ConfigureAwait(false))
+        {
+            if (!await this.RemoteBranchExistsAsync(branch, cancellationToken).ConfigureAwait(false))
+            {
+                throw new GitCommandException($"copy file to {branch}", 1, string.Empty, $"Environment '{branch}' does not exist locally or on the remote.");
+            }
+
+            await this.RunOrThrowAsync(["fetch", "origin", $"refs/heads/{branch}:refs/heads/{branch}"], cancellationToken).ConfigureAwait(false);
+        }
+
+        string targetReference = $"refs/heads/{branch}";
+        string targetCommit = (await this.RunOrThrowAsync(["rev-parse", "--verify", $"{targetReference}^{{commit}}"], cancellationToken).ConfigureAwait(false))
+            .StandardOutput
+            .Trim();
+        string temporaryIndex = Path.Combine(this.GitDirectory.FullName, $"index-{Guid.NewGuid():N}");
+
+        try
+        {
+            await this.RunWithIndexOrThrowAsync(["--literal-pathspecs", "read-tree", targetReference], temporaryIndex, cancellationToken).ConfigureAwait(false);
+            await this.RunWithIndexOrThrowAsync(["--literal-pathspecs", "add", "--force", "--", relativePath], temporaryIndex, cancellationToken).ConfigureAwait(false);
+            string newTree = (await this.RunWithIndexOrThrowAsync(["write-tree"], temporaryIndex, cancellationToken).ConfigureAwait(false))
+                .StandardOutput
+                .Trim();
+            string oldTree = (await this.RunOrThrowAsync(["rev-parse", "--verify", $"{targetReference}^{{tree}}"], cancellationToken).ConfigureAwait(false))
+                .StandardOutput
+                .Trim();
+
+            if (string.Equals(newTree, oldTree, StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            string currentBranch = await this.GetCurrentBranchAsync(cancellationToken).ConfigureAwait(false);
+            string commitMessage = $"Copy file '{relativePath}' from environment '{currentBranch}'.";
+            string newCommit = (await this.RunOrThrowAsync(
+                ["commit-tree", newTree, "-p", targetCommit, "-m", commitMessage],
+                cancellationToken).ConfigureAwait(false))
+                .StandardOutput
+                .Trim();
+
+            await this.RunOrThrowAsync(["update-ref", targetReference, newCommit, targetCommit], cancellationToken).ConfigureAwait(false);
+
+            return true;
+        }
+        finally
+        {
+            File.Delete(temporaryIndex);
+            File.Delete($"{temporaryIndex}.lock");
+        }
+    }
+
+    /// <summary>
     /// Commits staged changes with the given message. When there is nothing staged,
     /// this is a no-op rather than an error, so callers can call it unconditionally.
     /// </summary>
@@ -598,8 +665,42 @@ public sealed class GitClient
         return result;
     }
 
+    /// <summary>Runs a repository-scoped Git command using an isolated index.</summary>
+    private Task<GitCommandResult> RunWithIndexAsync(
+        IReadOnlyList<string> arguments,
+        string indexFile,
+        CancellationToken cancellationToken)
+        => this.RunProcessAsync(
+            this.WorkingDirectory,
+            this.RepositoryArguments.Concat(arguments).ToList(),
+            cancellationToken,
+            indexFile);
+
+    /// <summary>Runs a repository-scoped Git command using an isolated index and throws on failure.</summary>
+    private async Task<GitCommandResult> RunWithIndexOrThrowAsync(
+        IReadOnlyList<string> arguments,
+        string indexFile,
+        CancellationToken cancellationToken)
+    {
+        GitCommandResult result = await this.RunWithIndexAsync(arguments, indexFile, cancellationToken).ConfigureAwait(false);
+
+        if (!result.Succeeded)
+        {
+            string operationArguments = string.Join(' ', arguments);
+            string command = $"git {string.Join(' ', this.RepositoryArguments.Concat(arguments))}";
+
+            throw new GitCommandException(operationArguments, command, result.ExitCode, result.StandardOutput, result.StandardError);
+        }
+
+        return result;
+    }
+
     /// <summary>Runs git with the given arguments in a specific directory and returns the captured result.</summary>
-    private async Task<GitCommandResult> RunProcessAsync(DirectoryInfo directory, IReadOnlyList<string> arguments, CancellationToken cancellationToken)
+    private async Task<GitCommandResult> RunProcessAsync(
+        DirectoryInfo directory,
+        IReadOnlyList<string> arguments,
+        CancellationToken cancellationToken,
+        string? indexFile = null)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
@@ -615,6 +716,11 @@ public sealed class GitClient
         foreach (string argument in arguments)
         {
             startInfo.ArgumentList.Add(argument);
+        }
+
+        if (indexFile is not null)
+        {
+            startInfo.Environment["GIT_INDEX_FILE"] = indexFile;
         }
 
         using Process process = new()

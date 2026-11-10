@@ -10,7 +10,8 @@ namespace EnvManager.CommandLine.Files;
 
 /// <summary>
 /// The <c>files</c> command groups the subcommands used to manage files tracked in the
-/// environment repository: <c>add</c>, <c>remove</c>, <c>edit</c>, and <c>list</c>.
+/// environment repository: <c>add</c>, <c>remove</c>, <c>edit</c>, <c>list</c>, and
+/// <c>copy-to-environment</c>.
 /// </summary>
 public sealed class FilesCommand : Command
 {
@@ -26,5 +27,6 @@ public sealed class FilesCommand : Command
         this.Add(new FilesRemoveCommand());
         this.Add(new FilesEditCommand());
         this.Add(new FilesListCommand());
+        this.Add(new FilesCopyToEnvironmentCommand());
     }
 }
