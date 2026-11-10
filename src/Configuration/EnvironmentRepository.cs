@@ -281,6 +281,46 @@ public sealed class EnvironmentRepository
             .ToList();
     }
 
+    /// <summary>
+    /// Copies a tracked file's current working-tree contents to another environment
+    /// branch and commits it there without changing the active branch or work tree.
+    /// </summary>
+    /// <param name="fileName">The tracked file path, relative to the home directory.</param>
+    /// <param name="environmentName">The target environment branch.</param>
+    /// <param name="cancellationToken">A token that cancels the operation.</param>
+    /// <returns><see langword="true"/> if a commit was created; otherwise, <see langword="false"/> if the contents already matched.</returns>
+    /// <exception cref="ConfigurationException">The file is not tracked, is missing, or the target is invalid.</exception>
+    public async Task<bool> CopyFileToEnvironmentAsync(string fileName, string environmentName, CancellationToken cancellationToken = default)
+    {
+        string relativePath = ResolveRelativePath(fileName, EnvManagerPaths.HomeDirectory.FullName);
+        IReadOnlyList<string> files = await this.ListFilesAsync(cancellationToken).ConfigureAwait(false);
+
+        if (!files.Contains(relativePath, StringComparer.Ordinal))
+        {
+            throw new ConfigurationException($"File '{relativePath}' is not tracked in the current environment.");
+        }
+
+        string fullPath = Path.Combine(EnvManagerPaths.HomeDirectory.FullName, relativePath.Replace('/', Path.DirectorySeparatorChar));
+        if (!File.Exists(fullPath))
+        {
+            throw new ConfigurationException($"Tracked file '{relativePath}' was not found at '{fullPath}'.");
+        }
+
+        string currentEnvironment = await this.GetCurrentEnvironmentNameAsync(cancellationToken).ConfigureAwait(false);
+        if (string.Equals(environmentName, currentEnvironment, StringComparison.Ordinal))
+        {
+            throw new ConfigurationException("The target environment must be different from the current environment.");
+        }
+
+        IReadOnlyList<string> environments = await this.ListEnvironmentsAsync(cancellationToken).ConfigureAwait(false);
+        if (!environments.Contains(environmentName, StringComparer.Ordinal))
+        {
+            throw new ConfigurationException($"Environment '{environmentName}' does not exist.");
+        }
+
+        return await this.Git.CopyFileToBranchAsync(relativePath, environmentName, cancellationToken).ConfigureAwait(false);
+    }
+
     /// <summary>Pushes the current environment's committed changes to the remote repository.</summary>
     /// <param name="cancellationToken">A token to cancel the operation.</param>
     public Task PushAsync(CancellationToken cancellationToken = default)

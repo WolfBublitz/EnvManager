@@ -100,12 +100,17 @@ EnvManager files add .gitconfig
 EnvManager files list
 EnvManager files remove .gitconfig
 EnvManager files edit
+EnvManager files copy-to-environment
 ```
 
 `files edit` prompts for a tracked file and opens it in the executable configured by the
 `editor` setting (for example, `vim` or `code`). It requires an interactive terminal.
 Removing a file stops tracking it but leaves the local copy in place. File add and remove
 operations stage changes; run `EnvManager push` when you are ready to commit and publish them.
+`files copy-to-environment` prompts for a tracked file and another known environment, then
+commits the file's current contents on that target branch without switching the active
+environment or changing its working tree. Switch to the target and run `EnvManager push`
+to publish the copy. This command requires an interactive terminal.
 
 ### Settings
 
