@@ -14,12 +14,12 @@ using EnvManager.Shells;
 
 namespace EnvManager.CommandLine.Shells;
 
-/// <summary>Enables a supported shell and installs the profile loader for it.</summary>
+/// <summary>Enables a supported shell and installs its shell profile loader and addon files.</summary>
 public sealed class ShellsAddCommand : Command
 {
     /// <summary>Initializes a new instance of the <see cref="ShellsAddCommand"/> class.</summary>
     public ShellsAddCommand()
-        : base("add", "Enables a shell and installs its profile loader.")
+        : base("add", "Enables a shell and installs its shell profile loader and addon files.")
     {
         Argument<string> shellNameArgument = new("shell_name")
         {
@@ -27,7 +27,7 @@ public sealed class ShellsAddCommand : Command
         };
         Option<bool> yesOption = new("--yes", "-y")
         {
-            Description = "Trust the current environment repository and install its shell loader without prompting.",
+            Description = "Trust the current environment repository and install its shell profile loader without prompting.",
         };
 
         this.Add(shellNameArgument);
@@ -44,26 +44,26 @@ public sealed class ShellsAddCommand : Command
 
             if (!alreadyConfigured && !parseResult.GetValue(yesOption))
             {
-                ConsoleReporter.Warning($"The '{normalizedName}' profile will source scripts from this environment repository.");
+                ConsoleReporter.Warning($"The '{normalizedName}' shell profile will load addon files from this environment repository.");
                 if (!await ConsoleReporter.ConfirmAsync(
                     "Review the repository scripts before trusting them. Install the loader?",
                     defaultValue: false,
                     cancellationToken).ConfigureAwait(false))
                 {
-                    ConsoleReporter.Warning("Shell integration cancelled. No profile files were changed.");
+                    ConsoleReporter.Warning("Shell integration cancelled. No shell profiles or addon files were changed.");
                     return;
                 }
             }
 
-            IReadOnlyList<string> profilePaths = installer.Install(normalizedName);
-            bool addedProfile = false;
+            IReadOnlyList<string> installedFilePaths = installer.Install(normalizedName);
+            bool addedFiles = false;
 
-            foreach (string profilePath in profilePaths)
+            foreach (string installedFilePath in installedFilePaths)
             {
-                if (!await repository.Git.IsTrackedAsync(profilePath, cancellationToken).ConfigureAwait(false))
+                if (!await repository.Git.IsTrackedAsync(installedFilePath, cancellationToken).ConfigureAwait(false))
                 {
-                    await repository.Git.AddAsync(profilePath, cancellationToken).ConfigureAwait(false);
-                    addedProfile = true;
+                    await repository.Git.AddAsync(installedFilePath, cancellationToken).ConfigureAwait(false);
+                    addedFiles = true;
                 }
             }
 
@@ -72,12 +72,12 @@ public sealed class ShellsAddCommand : Command
                 configuration.Shells.Add(normalizedName);
                 await repository.SaveConfigurationAsync(configuration, $"Enable shell '{normalizedName}'.", cancellationToken).ConfigureAwait(false);
             }
-            else if (addedProfile)
+            else if (addedFiles)
             {
-                await repository.Git.CommitAsync($"Add shell '{normalizedName}' profiles.", cancellationToken).ConfigureAwait(false);
+                await repository.Git.CommitAsync($"Add shell '{normalizedName}' integration files.", cancellationToken).ConfigureAwait(false);
             }
 
-            if (addedProfile)
+            if (addedFiles)
             {
                 await repository.PushAsync(cancellationToken).ConfigureAwait(false);
             }
@@ -88,7 +88,7 @@ public sealed class ShellsAddCommand : Command
             }
             else
             {
-                ConsoleReporter.Success($"Enabled shell '{normalizedName}' and installed its profile loader.");
+                ConsoleReporter.Success($"Enabled shell '{normalizedName}' and installed its shell profile loader and addon files.");
             }
         }));
     }

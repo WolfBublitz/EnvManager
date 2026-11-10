@@ -13,7 +13,7 @@ public sealed class ShellsCommand : Command
 {
     /// <summary>Initializes a new instance of the <see cref="ShellsCommand"/> class.</summary>
     public ShellsCommand()
-        : base("shells", "Manage supported shells and their profile integration.")
+        : base("shells", "Manage supported shell profiles and addon files.")
     {
         this.Add(new ShellsAddCommand());
         this.Add(new ShellsRemoveCommand());

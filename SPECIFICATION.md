@@ -145,8 +145,8 @@ envmanager:
     list:   # Lists all tools and configurations.
     update: # Updates an existing tool or configuration.
   shells:
-    add:    # Enables a shell and installs its profile loader.
-    remove: # Disables a shell and restores its backed-up profile files.
+    add:    # Enables a shell and installs its shell profile loader and addon files.
+    remove: # Disables a shell, restores its shell profiles, and removes its addon files.
     list:   # Lists shells configured for the current environment.
   files:
     add:    # Adds a new file or configuration (to the repository)
@@ -177,7 +177,7 @@ Commands:
   variable    Manage environment variables and configurations.
   settings   Manage key-value settings stored in config.yml.
   tools      Manage tools and configurations.
-  shells      Manage supported shells and their profile integration.
+  shells      Manage supported shell profiles and addon files.
   push        Push the current environment configuration to the remote repository.
   pull        Pull the latest environment configuration from the remote repository.
   switch      Switch to a different environment configuration.
@@ -532,19 +532,19 @@ Possible shells include:
 | powershell | Linux, macOS, Windows |
 | cmd        | Windows               |
 
-Use `shells add <shell>` to copy any existing profile contents into `$HOME/.EnvManager/<shell>/00_Profile` with the shell's corresponding script extension and replace the original profiles with EnvManager loaders. For bash and zsh use `.sh`, for fish `.fish`, for PowerShell `.ps1`, and for CMD `.cmd`. The migrated profile shall not be copied to the shell-profile backup directory. `shells remove <shell>` shall remove unmodified loader files while leaving the migrated profile in the shell directory. Installation shall stage profile replacements, the `01_EnvManager` PATH script, and the migrated profile, then roll back all changed files if any step fails. Shell loaders execute scripts from the environment repository; review and trust repository contents before enabling integration.
+Use `shells add <shell>` to replace each shell profile (the file loaded directly by the shell, such as `~/.bashrc`) with an EnvManager loader. The loader shall load addon files from `$HOME/.EnvManager/<shell>/`; existing shell profile contents shall be preserved in the `00_Profile` addon file with the shell's corresponding script extension. For bash and zsh use `.sh`, for fish `.fish`, for PowerShell `.ps1`, and for CMD `.cmd`. The `00_Profile` addon file shall not be copied to the shell-profile backup directory. `shells remove <shell>` shall restore backed-up shell profiles or remove unmodified loaders, and shall remove the EnvManager-created addon file while leaving the `00_Profile` addon file in the shell directory. Installation shall stage shell profile replacements and addon files, then roll back all changed files if any step fails. Addon files are executable content; review and trust repository contents before enabling integration.
 
-When a loader profile is not tracked in the current environment, `shells add` shall
-commit it and push the current branch to `origin`. Existing tracked profiles shall not
+When a shell profile or addon file is not tracked in the current environment, `shells add` shall
+commit it and push the current branch to `origin`. Existing tracked files shall not
 be staged again by this operation, though any already staged changes are included in
 the commit. A failed push shall be reported and leave the local commit available for a
 later `push`; pushing also publishes any earlier local commits.
 
-The installed shell profile shall only load scripts from the shell directory. EnvManager's executable directory shall be added to `PATH` by a separate `01_EnvManager` script in that directory. For each shell, the script shall use the extension listed above.
+The installed shell profile shall only load addon files from its shell directory. EnvManager's executable directory shall be added to `PATH` by a separate `01_EnvManager` addon file in that directory. For each shell, addon files shall use the extension listed above.
 
 #### Bash
 
-For bash the existing profile files (e.g., `~/.bashrc`, `~/.bash_profile`) shall be copied into `$HOME/.EnvManager/bash/00_Profile.sh` and replaced by:
+For bash the existing shell profiles (e.g., `~/.bashrc`, `~/.bash_profile`) shall be replaced by shell profile loaders. Their existing contents shall be preserved in the `$HOME/.EnvManager/bash/00_Profile.sh` addon file. The shell profile loader shall contain:
 
 ```bash
 for file in "$HOME/.EnvManager/bash/"*.sh; do
@@ -552,7 +552,7 @@ for file in "$HOME/.EnvManager/bash/"*.sh; do
 done
 ```
 
-`$HOME/.EnvManager/bash/01_EnvManager.sh` shall contain:
+The `$HOME/.EnvManager/bash/01_EnvManager.sh` addon file shall contain:
 
 ```bash
 export PATH="$HOME/.local/bin:$PATH"
@@ -560,7 +560,7 @@ export PATH="$HOME/.local/bin:$PATH"
 
 #### Zsh
 
-For zsh the existing profile files (e.g., `~/.zshrc`, `~/.zprofile`) shall be copied into `$HOME/.EnvManager/zsh/00_Profile.sh` and replaced by:
+For zsh the existing shell profiles (e.g., `~/.zshrc`, `~/.zprofile`) shall be replaced by shell profile loaders. Their existing contents shall be preserved in the `$HOME/.EnvManager/zsh/00_Profile.sh` addon file. The shell profile loader shall contain:
 
 ```bash
 for file in "$HOME/.EnvManager/zsh/"*.sh; do
@@ -568,7 +568,7 @@ for file in "$HOME/.EnvManager/zsh/"*.sh; do
 done
 ```
 
-`$HOME/.EnvManager/zsh/01_EnvManager.sh` shall contain:
+The `$HOME/.EnvManager/zsh/01_EnvManager.sh` addon file shall contain:
 
 ```bash
 export PATH="$HOME/.local/bin:$PATH"
@@ -576,7 +576,7 @@ export PATH="$HOME/.local/bin:$PATH"
 
 #### Fish
 
-For fish the existing profile file (e.g., `~/.config/fish/config.fish`) shall be copied into `$HOME/.EnvManager/fish/00_Profile.fish` and replaced by:
+For fish the existing shell profile (e.g., `~/.config/fish/config.fish`) shall be replaced by a shell profile loader. Its existing contents shall be preserved in the `$HOME/.EnvManager/fish/00_Profile.fish` addon file. The shell profile loader shall contain:
 
 ```fish
 if test -d $HOME/.EnvManager/fish
@@ -586,7 +586,7 @@ if test -d $HOME/.EnvManager/fish
 end
 ```
 
-`$HOME/.EnvManager/fish/01_EnvManager.fish` shall contain:
+The `$HOME/.EnvManager/fish/01_EnvManager.fish` addon file shall contain:
 
 ```fish
 set -gx PATH "$HOME/.local/bin" $PATH
@@ -594,7 +594,7 @@ set -gx PATH "$HOME/.local/bin" $PATH
 
 #### PowerShell
 
-For PowerShell the existing profile file (e.g., `$PROFILE`) shall be copied into `$HOME/.EnvManager/powershell/00_Profile.ps1` and replaced by:
+For PowerShell the existing shell profile (e.g., `$PROFILE`) shall be replaced by a shell profile loader. Its existing contents shall be preserved in the `$HOME/.EnvManager/powershell/00_Profile.ps1` addon file. The shell profile loader shall contain:
 
 ```powershell
 $path = "$HOME/.EnvManager/powershell"
@@ -604,7 +604,7 @@ if (Test-Path $path) {
 }
 ```
 
-`$HOME/.EnvManager/powershell/01_EnvManager.ps1` shall contain:
+The `$HOME/.EnvManager/powershell/01_EnvManager.ps1` addon file shall contain:
 
 ```powershell
 $env:PATH = "$HOME/.local/bin$([IO.Path]::PathSeparator)$env:PATH"
@@ -612,7 +612,7 @@ $env:PATH = "$HOME/.local/bin$([IO.Path]::PathSeparator)$env:PATH"
 
 #### CMD
 
-For CMD the existing profile file (e.g., `C:\Users\<User>\_cmdrc`) shall be copied into `%USERPROFILE%\.EnvManager\cmd\00_Profile.cmd` and replaced by:
+For CMD the existing shell profile (e.g., `C:\Users\<User>\_cmdrc`) shall be replaced by a shell profile loader. Its existing contents shall be preserved in the `%USERPROFILE%\.EnvManager\cmd\00_Profile.cmd` addon file. The shell profile loader shall contain:
 
 ```cmd
 for %%f in ("%USERPROFILE%\.EnvManager\cmd\*") do (
@@ -620,7 +620,7 @@ for %%f in ("%USERPROFILE%\.EnvManager\cmd\*") do (
 )
 ```
 
-`%USERPROFILE%\.EnvManager\cmd\01_EnvManager.cmd` shall contain:
+The `%USERPROFILE%\.EnvManager\cmd\01_EnvManager.cmd` addon file shall contain:
 
 ```cmd
 set PATH=%USERPROFILE%\.local\bin;%PATH%
@@ -670,11 +670,11 @@ EnvManager allows you to manage environment variables efficiently. You can set, 
 - Variable names must be valid portable environment-variable identifiers (ASCII letters, digits, and underscores; the first character is a letter or underscore).
 - Variable values are stored in plaintext in `config.yml`; they may be committed and pushed. Secrets must not be stored there.
 - On configuration load, update, environment switch, and pull, EnvManager generates shell-quoted exports for configured shells on the current operating system under `$HOME/.EnvManager/<shell>/`.
-- Bash and Zsh exports use `.sh`, Fish uses `.fish`, PowerShell uses `.ps1`, and CMD uses `.cmd`; installed profile loaders source these files for newly started shells.
+- Bash and Zsh exports use `.sh`, Fish uses `.fish`, PowerShell uses `.ps1`, and CMD uses `.cmd`; installed shell profile loaders load these addon files for newly started shells.
 - Generated variable-export files are maintained by EnvManager and shall not be added separately with `files add`.
 - A shell-startup change affects new shell processes, not already-running processes.
 - CMD export values containing double quotes, percent signs, exclamation marks, or line breaks cannot be safely represented and shall fail with a clear error.
-- Values from shared or cloned repositories shall be reviewed. Repositories and shell scripts are executable content and must be trusted before profile integration is enabled.
+- Values from shared or cloned repositories shall be reviewed. Repositories and addon files are executable content and must be trusted before shell profile integration is enabled.
 
 ### Custom Tool Command Safety
 
@@ -682,7 +682,7 @@ EnvManager allows you to manage environment variables efficiently. You can set, 
 - The `tools add`, `tools update`, and `tools remove` commands may accept `--yes` to bypass the prompt for reviewed, trusted configuration.
 - A declined command shall not run and shall not update tool tracking.
 - Commands stored in a shared configuration must be reviewed before execution. Secrets must not be embedded in custom commands.
-- `shells add` shall ask the user to trust the repository before installing a loader that will source its scripts; the prompt defaults to no. `shells add --yes` may bypass the prompt for a reviewed repository.
+- `shells add` shall ask the user to trust the repository before installing a shell profile loader that will load its addon files; the prompt defaults to no. `shells add --yes` may bypass the prompt for a reviewed repository.
 
 ## Installation
 

@@ -18,8 +18,8 @@ review changes to your setup like any other code.
   `$HOME/.EnvManager/config.yml`, so changes can be reviewed and synchronized between machines.
 - **Multiple environments**: switch between environments (branches) at any time.
 - **Self-update**: check for compatible GitHub releases and replace the installed executable.
-- **Shell integration**: configure bash, zsh, fish, PowerShell, and CMD profile loaders while migrating existing profile contents into the managed shell directory.
-- **Executable discovery**: managed shell profiles add `$HOME/.local/bin` to `PATH`.
+- **Shell integration**: install loaders in shell profiles (such as `.bashrc`) and preserve existing contents as addon files in the managed shell directory.
+- **Executable discovery**: addon files add `$HOME/.local/bin` to `PATH` when loaded by a shell profile.
 - Color-coded CLI output (green for success, red for errors, yellow for warnings, blue for info)
   using [Spectre.Console](https://spectreconsole.net/).
 
@@ -106,12 +106,12 @@ EnvManager init --environment laptop
 EnvManager shells add bash
 ```
 
-`shells add bash` asks you to trust the configuration because its scripts will run when
-Bash starts. It preserves existing Bash profile contents under
-`$HOME/.EnvManager/bash/00_Profile.sh` and installs profile loaders; open a new terminal
+`shells add bash` asks you to trust the configuration because its addon files will run when
+Bash starts. It preserves existing shell profile contents under
+`$HOME/.EnvManager/bash/00_Profile.sh` and installs shell profile loaders; open a new terminal
 to load the integration. If the configuration has no Git remote, the changes are
 committed locally and can be pushed after you configure one. See [Shells](#shells) for
-details about migrated profiles and shell scripts.
+details about shell profiles and addon files.
 
 ### Installer options
 
@@ -300,34 +300,35 @@ be committed or pushed.
 
 ```bash
 EnvManager shells add <shell_name> [--yes] # Enable a shell after trusting repository scripts
-EnvManager shells remove <shell_name> # Disable a shell and remove its profile loaders
+EnvManager shells remove <shell_name> # Disable a shell, restore its shell profiles, and remove addon files
 EnvManager shells list                # List shells configured for this environment
 ```
 
 Supported shells are `bash`, `zsh`, `fish`, `powershell`, and `cmd`, subject to the
 operating-system support described in [SPECIFICATION.md](SPECIFICATION.md#shells).
-When adding a shell, existing profile contents are copied into
-`$HOME/.EnvManager/<shell>/00_Profile` with the shell's script extension (`.sh`, `.fish`,
-`.ps1`, or `.cmd`), and the loader files replace the original profiles. A
-`01_EnvManager` script adds `$HOME/.local/bin` to `PATH`. The migrated profile and
-PATH script are tracked with the loaders. Removing the shell deletes its loader files but
-leaves the migrated profile in the shell directory. Newly tracked files are committed
+When adding a shell, its shell profile (the file loaded directly by the shell, such as
+`.bashrc`) is replaced with a loader. Existing shell profile contents are preserved in an
+addon file named `00_Profile` with the shell's script extension (`.sh`, `.fish`,
+`.ps1`, or `.cmd`) under `$HOME/.EnvManager/<shell>/`. A `01_EnvManager` addon file
+adds `$HOME/.local/bin` to `PATH`. The shell profiles and addon files are tracked with
+the environment configuration. Removing the shell restores backed-up shell profiles or
+removes unmodified loaders, removes the EnvManager-created addon file, and leaves the
+`00_Profile` addon file in the shell directory. Newly tracked files are committed
 and pushed to `origin` by `shells add`; this also pushes any earlier local commits.
 If no remote is configured or the push fails, the local commit remains; configure or
-repair the remote and run `EnvManager push` to retry. Already tracked profile files
+repair the remote and run `EnvManager push` to retry. Already tracked shell profile and addon files
 are not staged again, but any changes already staged are included in the commit.
-Shell-specific files loaded by the profile
-shims belong in `$HOME/.EnvManager/<shell>/` and are staged automatically with configuration
+Additional shell-specific addon files belong in `$HOME/.EnvManager/<shell>/` and are staged automatically with configuration
 changes. Other files under `$HOME/.EnvManager/` can be versioned with `files add`; files under
 `$HOME/.EnvManager/repo/` are EnvManager's internal Git database and cannot be added or removed.
 Use
 `.sh` files for bash/zsh, `.fish` for fish, and `.ps1` for PowerShell.
-Profile installation stages replacement files and the migrated profile, and rolls back
-profile changes if an installation step fails. Configured variable exports are generated in the corresponding
+Shell profile installation stages replacement profiles and addon files, and rolls back
+changes if an installation step fails. Configured variable exports are generated as addon files in the corresponding
 shell directory and loaded on the next shell start; changes do not modify already-running
-processes. Generated export files are maintained by EnvManager and staged with other shell
+processes. Generated export addon files are maintained by EnvManager and staged with other shell
 files; they can also be explicitly staged with `files add`. Enabling a shell prompts you to trust the repository because
-its scripts will run at shell startup; `shells add --yes` bypasses this confirmation only
+its addon files will run at shell startup; `shells add --yes` bypasses this confirmation only
 after you have reviewed the repository.
 
 ### Files
