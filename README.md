@@ -20,6 +20,7 @@ review changes to your setup like any other code.
 - **Self-update**: check for compatible GitHub releases and replace the installed executable.
 - **Shell integration**: install loaders in shell profiles (such as `.bashrc`) and preserve existing contents as addon files in the managed shell directory.
 - **Executable discovery**: addon files add `$HOME/.local/bin` to `PATH` when loaded by a shell profile.
+- **Shell alias**: configured shells provide `em` as a shortcut for `EnvManager`; startup migration adds it to existing shell integrations when missing.
 - Color-coded CLI output (green for success, red for errors, yellow for warnings, blue for info)
   using [Spectre.Console](https://spectreconsole.net/).
 

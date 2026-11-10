@@ -42,7 +42,7 @@ public sealed class ShellProfileInstallerTests
             await Assert.That(File.ReadAllText(migratedProfile)).Contains("original bashrc");
             await Assert.That(File.ReadAllText(migratedProfile)).Contains("original bash profile");
             await Assert.That(File.ReadAllText(Path.Combine(home.FullName, ".EnvManager", "bash", "01_EnvManager.sh")))
-                .IsEqualTo("export PATH=\"$HOME/.local/bin:$PATH\"\n");
+                .IsEqualTo("export PATH=\"$HOME/.local/bin:$PATH\"\nalias em='EnvManager'\n");
             await Assert.That(File.Exists(Path.Combine(home.FullName, ".EnvManager", "backups", "shell-profiles", "bash", ".bashrc"))).IsFalse();
             await Assert.That(File.Exists(bashrc)).IsTrue();
         }
@@ -94,7 +94,7 @@ public sealed class ShellProfileInstallerTests
 
             await Assert.That(File.ReadAllText(bashrc)).IsEqualTo("for file in \"$HOME/.EnvManager/bash/\"*.sh; do\n    [ -f \"$file\" ] && source \"$file\"\ndone\n");
             await Assert.That(File.ReadAllText(Path.Combine(home.FullName, ".EnvManager", "bash", "01_EnvManager.sh")))
-                .IsEqualTo("export PATH=\"$HOME/.local/bin:$PATH\"\n");
+                .IsEqualTo("export PATH=\"$HOME/.local/bin:$PATH\"\nalias em='EnvManager'\n");
             await Assert.That(File.ReadAllText(migratedProfile)).IsEqualTo("original profile");
             installer.Uninstall("bash");
             await Assert.That(File.Exists(bashrc)).IsFalse();
@@ -287,7 +287,7 @@ public sealed class ShellProfileInstallerTests
             await Assert.That(content).IsEqualTo(expectedContent);
             await Assert.That(File.ReadAllText(Path.Combine(home.FullName, ".zprofile"))).IsEqualTo(expectedContent);
             await Assert.That(File.ReadAllText(Path.Combine(home.FullName, ".EnvManager", "zsh", "01_EnvManager.sh")))
-                .IsEqualTo("export PATH=\"$HOME/.local/bin:$PATH\"\n");
+                .IsEqualTo("export PATH=\"$HOME/.local/bin:$PATH\"\nalias em='EnvManager'\n");
         }
         finally
         {
@@ -312,7 +312,7 @@ public sealed class ShellProfileInstallerTests
 
             await Assert.That(content).IsEqualTo(expectedContent);
             await Assert.That(File.ReadAllText(Path.Combine(home.FullName, ".EnvManager", "fish", "01_EnvManager.fish")))
-                .IsEqualTo("set -gx PATH \"$HOME/.local/bin\" $PATH\n");
+                .IsEqualTo("set -gx PATH \"$HOME/.local/bin\" $PATH\nalias em EnvManager\n");
         }
         finally
         {
@@ -336,7 +336,7 @@ public sealed class ShellProfileInstallerTests
 
             await Assert.That(File.ReadAllText(profile)).IsEqualTo(expectedContent);
             await Assert.That(File.ReadAllText(Path.Combine(home.FullName, ".EnvManager", "powershell", "01_EnvManager.ps1")))
-                .IsEqualTo("$env:PATH = \"$HOME/.local/bin$([IO.Path]::PathSeparator)$env:PATH\"\n");
+                .IsEqualTo("$env:PATH = \"$HOME/.local/bin$([IO.Path]::PathSeparator)$env:PATH\"\nSet-Alias -Name em -Value EnvManager\n");
         }
         finally
         {
@@ -360,7 +360,7 @@ public sealed class ShellProfileInstallerTests
 
             await Assert.That(File.ReadAllText(profile)).IsEqualTo(expectedContent);
             await Assert.That(File.ReadAllText(Path.Combine(home.FullName, ".EnvManager", "powershell", "01_EnvManager.ps1")))
-                .IsEqualTo("$env:PATH = \"$HOME/.local/bin$([IO.Path]::PathSeparator)$env:PATH\"\n");
+                .IsEqualTo("$env:PATH = \"$HOME/.local/bin$([IO.Path]::PathSeparator)$env:PATH\"\nSet-Alias -Name em -Value EnvManager\n");
         }
         finally
         {
@@ -384,7 +384,7 @@ public sealed class ShellProfileInstallerTests
 
             await Assert.That(content).IsEqualTo(expectedContent);
             await Assert.That(File.ReadAllText(Path.Combine(home.FullName, ".EnvManager", "cmd", "01_EnvManager.cmd")))
-                .IsEqualTo("set PATH=%USERPROFILE%\\.local\\bin;%PATH%\n");
+                .IsEqualTo("set PATH=%USERPROFILE%\\.local\\bin;%PATH%\ndoskey em=EnvManager $*\n");
         }
         finally
         {

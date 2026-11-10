@@ -39,7 +39,7 @@ public sealed class ShellsAddCommandTests
             await Assert.That(bashrc).DoesNotContain("$HOME/.local/bin");
             await Assert.That(bashProfile).IsEqualTo(bashrc);
             await Assert.That(migratedProfile).IsEqualTo("original");
-            await Assert.That(envManagerProfile).IsEqualTo("export PATH=\"$HOME/.local/bin:$PATH\"");
+            await Assert.That(envManagerProfile).IsEqualTo("export PATH=\"$HOME/.local/bin:$PATH\"\nalias em='EnvManager'");
             await Assert.That(File.Exists(Path.Combine(home, ".EnvManager", "backups", "shell-profiles", "bash", ".bashrc"))).IsFalse();
             string firstCommit = await RunSuccessAsync(root.FullName, "git", $"--git-dir={remote}", "rev-parse", "main");
 

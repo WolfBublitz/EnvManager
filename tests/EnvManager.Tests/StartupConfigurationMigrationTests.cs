@@ -8,6 +8,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
 
 using TUnit.Assertions;
@@ -168,6 +169,69 @@ public sealed class StartupConfigurationMigrationTests
         }
     }
 
+    [Test]
+    public async Task StartupAddsMissingEnvManagerAliasesForConfiguredShellsAndPreservesExistingAliases()
+    {
+        DirectoryInfo root = CreateRoot();
+        try
+        {
+            string home = Directory.CreateDirectory(Path.Combine(root.FullName, "home")).FullName;
+            await InitializeHomeAsync(home);
+
+            string[] shells = OperatingSystem.IsWindows()
+                ? ["powershell", "cmd"]
+                : ["bash", "zsh", "fish", "powershell"];
+            string existingAliasShell = shells[0];
+            string configPath = Path.Combine(home, ".EnvManager", "config.yml");
+            string configuration = File.ReadAllText(configPath);
+            string shellList = "shells:\n" + string.Join('\n', Array.ConvertAll(shells, shell => $"  - {shell}"));
+            await File.WriteAllTextAsync(configPath, configuration.Replace("shells: []", shellList, StringComparison.Ordinal));
+
+            foreach (string shell in shells)
+            {
+                string extension = GetShellAddonExtension(shell);
+                string shellDirectory = Path.Combine(home, ".EnvManager", shell);
+                Directory.CreateDirectory(shellDirectory);
+                string existingAlias = shell == existingAliasShell ? GetAliasContent(shell) : "original profile\n";
+                await File.WriteAllTextAsync(Path.Combine(shellDirectory, $"00_Profile{extension}"), existingAlias);
+                await File.WriteAllTextAsync(Path.Combine(shellDirectory, $"01_EnvManager{extension}"), GetPathOnlyContent(shell));
+                await RunGitSuccessAsync(home, "add", "--", $".EnvManager/{shell}/00_Profile{extension}", $".EnvManager/{shell}/01_EnvManager{extension}");
+            }
+
+            await RunGitSuccessAsync(home, "add", "--", ".EnvManager/config.yml");
+            await RunGitSuccessAsync(home, "commit", "-m", "Seed configured shells without aliases");
+
+            (int exitCode, _) = await RunCliAsync(home, "settings", "list");
+
+            await Assert.That(exitCode).IsEqualTo(0);
+            foreach (string shell in shells)
+            {
+                string extension = GetShellAddonExtension(shell);
+                string envManagerAddon = File.ReadAllText(Path.Combine(home, ".EnvManager", shell, $"01_EnvManager{extension}"));
+                string expectedAddon = shell == existingAliasShell
+                    ? GetPathOnlyContent(shell)
+                    : GetPathOnlyContent(shell) + GetAliasContent(shell);
+                await Assert.That(envManagerAddon).IsEqualTo(expectedAddon);
+            }
+
+            string migratedHead = await GetHeadAsync(home);
+            (int secondExitCode, _) = await RunCliAsync(home, "settings", "list");
+            await Assert.That(secondExitCode).IsEqualTo(0);
+            await Assert.That(await GetHeadAsync(home)).IsEqualTo(migratedHead);
+
+            foreach (string shell in shells.Where(shell => shell != existingAliasShell))
+            {
+                string extension = GetShellAddonExtension(shell);
+                await Assert.That(await RunGitAsync(home, "status", "--porcelain", "--", $".EnvManager/{shell}/01_EnvManager{extension}"))
+                    .IsEqualTo(string.Empty);
+            }
+        }
+        finally
+        {
+            Directory.Delete(root.FullName, recursive: true);
+        }
+    }
+
     private static DirectoryInfo CreateRoot()
     {
         DirectoryInfo root = new(Path.Combine(Path.GetTempPath(), $"EnvManager-StartupMigrationTests-{Guid.NewGuid():N}"));
@@ -190,6 +254,36 @@ public sealed class StartupConfigurationMigrationTests
         await RunGitSuccessAsync(home, "add", "--", ".EnvManager/config.yml");
         await RunGitSuccessAsync(home, "commit", "-m", "Seed legacy configuration schema");
     }
+
+    private static string GetShellAddonExtension(string shell)
+        => shell switch
+        {
+            "bash" or "zsh" => ".sh",
+            "fish" => ".fish",
+            "powershell" => ".ps1",
+            "cmd" => ".cmd",
+            _ => throw new InvalidOperationException($"Unexpected shell '{shell}'."),
+        };
+
+    private static string GetPathOnlyContent(string shell)
+        => shell switch
+        {
+            "bash" or "zsh" => "export PATH=\"$HOME/.local/bin:$PATH\"\n",
+            "fish" => "set -gx PATH \"$HOME/.local/bin\" $PATH\n",
+            "powershell" => "$env:PATH = \"$HOME/.local/bin$([IO.Path]::PathSeparator)$env:PATH\"\n",
+            "cmd" => "set PATH=%USERPROFILE%\\.local\\bin;%PATH%\n",
+            _ => throw new InvalidOperationException($"Unexpected shell '{shell}'."),
+        };
+
+    private static string GetAliasContent(string shell)
+        => shell switch
+        {
+            "bash" or "zsh" => "alias em='EnvManager'\n",
+            "fish" => "alias em EnvManager\n",
+            "powershell" => "Set-Alias -Name em -Value EnvManager\n",
+            "cmd" => "doskey em=EnvManager $*\n",
+            _ => throw new InvalidOperationException($"Unexpected shell '{shell}'."),
+        };
 
     private static ConfigurationDocument Deserialize(string yaml)
         => new DeserializerBuilder()

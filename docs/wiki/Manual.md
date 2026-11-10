@@ -87,8 +87,10 @@ EnvManager shells remove zsh
 Adding a shell replaces its shell profile (the file loaded directly by the shell, such
 as `.bashrc`) with a loader. Existing shell profile contents are preserved as addon files
 under `$HOME/.EnvManager/<shell>/`, including the `00_Profile` addon file and a
-`01_EnvManager` addon file that adds `$HOME/.local/bin` to `PATH`. Addon files run at
-shell startup, so review a configuration repository before trusting it.
+`01_EnvManager` addon file that adds `$HOME/.local/bin` to `PATH` and defines the
+`em` alias for `EnvManager`. Startup also adds this alias to existing configured shell
+integrations when it is missing. Addon files run at shell startup, so review a
+configuration repository before trusting it.
 
 ### Files
 

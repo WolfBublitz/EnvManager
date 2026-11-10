@@ -162,21 +162,47 @@ public sealed class EnvironmentRepository
         string environmentName = await this.GetCurrentEnvironmentNameAsync(cancellationToken).ConfigureAwait(false);
         EnvironmentConfiguration configuration = this.serializer.Load(configurationFile, environmentName);
 
-        if (!this.serializer.Migrate(configurationFile, configuration))
+        if (this.serializer.Migrate(configurationFile, configuration))
         {
-            return;
+            await this.Git.AddAsync(EnvManagerPaths.EnvironmentFileRelativePath, cancellationToken).ConfigureAwait(false);
+            if (await this.Git.HasStagedChangesForFileAsync(EnvManagerPaths.EnvironmentFileRelativePath, cancellationToken).ConfigureAwait(false))
+            {
+                await this.Git.CommitFileAsync(
+                    $"Migrate configuration to format version {EnvironmentConfiguration.CurrentFormatVersion}.",
+                    EnvManagerPaths.EnvironmentFileRelativePath,
+                    cancellationToken).ConfigureAwait(false);
+            }
+
+            ConsoleReporter.Info($"Migrated config.yml to format version {EnvironmentConfiguration.CurrentFormatVersion}.");
         }
 
-        await this.Git.AddAsync(EnvManagerPaths.EnvironmentFileRelativePath, cancellationToken).ConfigureAwait(false);
-        if (await this.Git.HasStagedChangesForFileAsync(EnvManagerPaths.EnvironmentFileRelativePath, cancellationToken).ConfigureAwait(false))
+        ShellProfileInstaller shellProfileInstaller = new(EnvManagerPaths.HomeDirectory, OperatingSystem.IsWindows());
+        HashSet<string> migratedShells = new(StringComparer.OrdinalIgnoreCase);
+        bool isWindows = OperatingSystem.IsWindows();
+        foreach (string shellName in configuration.Shells)
         {
-            await this.Git.CommitFileAsync(
-                $"Migrate configuration to format version {EnvironmentConfiguration.CurrentFormatVersion}.",
-                EnvManagerPaths.EnvironmentFileRelativePath,
-                cancellationToken).ConfigureAwait(false);
-        }
+            string normalizedShellName = shellName.Trim().ToLowerInvariant();
+            if ((isWindows && normalizedShellName is "bash" or "zsh" or "fish")
+                || (!isWindows && normalizedShellName is "cmd")
+                || !migratedShells.Add(normalizedShellName))
+            {
+                continue;
+            }
 
-        ConsoleReporter.Info($"Migrated config.yml to format version {EnvironmentConfiguration.CurrentFormatVersion}.");
+            string? aliasPath = shellProfileInstaller.EnsureEnvManagerAlias(normalizedShellName);
+            if (aliasPath is null)
+            {
+                continue;
+            }
+
+            await this.Git.AddAsync(aliasPath, cancellationToken).ConfigureAwait(false);
+            if (await this.Git.HasStagedChangesForFileAsync(aliasPath, cancellationToken).ConfigureAwait(false))
+            {
+                await this.Git.CommitFileAsync($"Add EnvManager alias for shell '{normalizedShellName}'.", aliasPath, cancellationToken).ConfigureAwait(false);
+            }
+
+            ConsoleReporter.Info($"Added the 'em' alias for EnvManager to the '{normalizedShellName}' shell profile.");
+        }
     }
 
     /// <summary>Persists and commits the given configuration for the currently checked-out environment.</summary>

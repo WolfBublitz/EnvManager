@@ -87,7 +87,7 @@ The backend of the EnvManager uses a git repository to store and manage environm
 
 Inside each branch, the environment configuration is stored as `$HOME/.EnvManager/config.yml`. This is the canonical configuration file and is tracked in the bare repository's home-directory work tree. It shall be created if it does not exist. Other files are tracked at their paths relative to `$HOME`.
 
-The first field in `config.yml` is `formatVersion`, initially `1.0`. Configuration files without this field are treated as format version `1.0`. On application startup, EnvManager checks the current configuration against the latest format supported by that app version, adds missing schema metadata, and commits a migration when needed. Configurations using an unsupported format version are not modified and produce an error. See the [configuration JSON Schema](schemas/config/config.schema.1.0.0.yaml) for the document schema and compatibility rules. Tagged releases publish each versioned schema file as a separate release asset.
+The first field in `config.yml` is `formatVersion`, initially `1.0`. Configuration files without this field are treated as format version `1.0`. On application startup, EnvManager checks the current configuration against the latest format supported by that app version, adds missing schema metadata, and commits a migration when needed. Startup also checks each configured shell available on the current operating system for the `em` alias for EnvManager and adds it to the shell's `01_EnvManager` addon when missing, committing the changed addon. Configurations using an unsupported format version are not modified and produce an error. See the [configuration JSON Schema](schemas/config/config.schema.1.0.0.yaml) for the document schema and compatibility rules. Tagged releases publish each versioned schema file as a separate release asset.
 
 ### Git Setup
 
@@ -573,6 +573,7 @@ The `$HOME/.EnvManager/bash/01_EnvManager.sh` addon file shall contain:
 
 ```bash
 export PATH="$HOME/.local/bin:$PATH"
+alias em='EnvManager'
 ```
 
 #### Zsh
@@ -589,6 +590,7 @@ The `$HOME/.EnvManager/zsh/01_EnvManager.sh` addon file shall contain:
 
 ```bash
 export PATH="$HOME/.local/bin:$PATH"
+alias em='EnvManager'
 ```
 
 #### Fish
@@ -607,6 +609,7 @@ The `$HOME/.EnvManager/fish/01_EnvManager.fish` addon file shall contain:
 
 ```fish
 set -gx PATH "$HOME/.local/bin" $PATH
+alias em EnvManager
 ```
 
 #### PowerShell
@@ -625,6 +628,7 @@ The `$HOME/.EnvManager/powershell/01_EnvManager.ps1` addon file shall contain:
 
 ```powershell
 $env:PATH = "$HOME/.local/bin$([IO.Path]::PathSeparator)$env:PATH"
+Set-Alias -Name em -Value EnvManager
 ```
 
 #### CMD
@@ -641,6 +645,7 @@ The `%USERPROFILE%\.EnvManager\cmd\01_EnvManager.cmd` addon file shall contain:
 
 ```cmd
 set PATH=%USERPROFILE%\.local\bin;%PATH%
+doskey em=EnvManager $*
 ```
 
 
