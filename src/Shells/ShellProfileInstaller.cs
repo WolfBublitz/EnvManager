@@ -13,8 +13,8 @@ using EnvManager.Exceptions;
 namespace EnvManager.Shells;
 
 /// <summary>
-/// Installs and removes the EnvManager loader in supported shell profile files,
-/// migrating original profile contents into the user's EnvManager shell directory.
+/// Installs and removes the EnvManager loader in supported shell profiles,
+/// preserving original shell profile contents as addon files in the user's EnvManager shell directory.
 /// </summary>
 internal sealed class ShellProfileInstaller
 {
@@ -71,111 +71,111 @@ internal sealed class ShellProfileInstaller
         return normalizedName;
     }
 
-    /// <summary>Migrates existing profile contents and installs loader files for the requested shell.</summary>
+    /// <summary>Preserves existing shell profiles as addon files and installs shell profile loaders.</summary>
     /// <param name="shellName">A supported shell name.</param>
-    /// <returns>The home-relative paths of installed loader files and any migrated profile.</returns>
+    /// <returns>The home-relative paths of installed shell profiles and addon files.</returns>
     public IReadOnlyList<string> Install(string shellName)
     {
         string normalizedName = this.NormalizeShellName(shellName);
-        ShellProfile profile = this.GetProfile(normalizedName);
-        List<(FileInfo ProfileFile, bool Existed, byte[] OriginalContent)> profiles = [];
-        List<(FileInfo ProfileFile, string TemporaryFile)> stagedFiles = [];
-        List<string> migrationContents = [];
-        List<byte[]> migrationContentBytes = [];
-        FileInfo migratedProfileFile = new(Path.Combine(this.homeDirectory.FullName, ".EnvManager", normalizedName, $"00_Profile{profile.MigrationExtension}"));
-        FileInfo envManagerProfileFile = new(Path.Combine(this.homeDirectory.FullName, ".EnvManager", normalizedName, $"01_EnvManager{profile.MigrationExtension}"));
-        string envManagerProfileContent = GetEnvManagerProfileContent(normalizedName);
+        ShellProfileDefinition shellProfile = this.GetShellProfileDefinition(normalizedName);
+        List<(FileInfo ShellProfileFile, bool Existed, byte[] OriginalContent)> shellProfileFiles = [];
+        List<(FileInfo File, string TemporaryFile)> stagedFiles = [];
+        List<string> addonContents = [];
+        List<byte[]> addonContentBytes = [];
+        FileInfo migratedAddonFile = new(Path.Combine(this.homeDirectory.FullName, ".EnvManager", normalizedName, $"00_Profile{shellProfile.AddonExtension}"));
+        FileInfo pathAddonFile = new(Path.Combine(this.homeDirectory.FullName, ".EnvManager", normalizedName, $"01_EnvManager{shellProfile.AddonExtension}"));
+        string pathAddonContent = GetPathAddonContent(normalizedName);
 
-        foreach (string relativePath in profile.ProfilePaths)
+        foreach (string relativePath in shellProfile.ShellProfilePaths)
         {
-            FileInfo profileFile = new(Path.Combine(this.homeDirectory.FullName, relativePath));
-            bool existed = profileFile.Exists;
-            byte[] originalContent = existed ? File.ReadAllBytes(profileFile.FullName) : [];
-            string originalText = existed ? File.ReadAllText(profileFile.FullName) : string.Empty;
+            FileInfo shellProfileFile = new(Path.Combine(this.homeDirectory.FullName, relativePath));
+            bool existed = shellProfileFile.Exists;
+            byte[] originalContent = existed ? File.ReadAllBytes(shellProfileFile.FullName) : [];
+            string originalText = existed ? File.ReadAllText(shellProfileFile.FullName) : string.Empty;
 
-            if (existed && !IsInstalledProfile(normalizedName, profile, originalText))
+            if (existed && !IsInstalledShellProfile(normalizedName, shellProfile, originalText))
             {
                 FileInfo backupFile = this.GetBackupFile(normalizedName, relativePath);
                 if (backupFile.Exists)
                 {
-                    throw new ConfigurationException($"Shell profile '{profileFile.FullName}' was modified after its original backup was created. Preserve or restore it before reinstalling shell integration.");
+                    throw new ConfigurationException($"Shell profile '{shellProfileFile.FullName}' was modified after its original backup was created. Preserve or restore it before reinstalling shell integration.");
                 }
 
-                migrationContents.Add(originalText);
-                migrationContentBytes.Add(originalContent);
+                addonContents.Add(originalText);
+                addonContentBytes.Add(originalContent);
             }
 
-            profiles.Add((profileFile, existed, originalContent));
+            shellProfileFiles.Add((shellProfileFile, existed, originalContent));
         }
 
-        if (migrationContents.Count > 0 && migratedProfileFile.Exists)
+        if (addonContents.Count > 0 && migratedAddonFile.Exists)
         {
-            throw new ConfigurationException($"Cannot migrate the existing shell profile because '{migratedProfileFile.FullName}' already exists.");
+            throw new ConfigurationException($"Cannot preserve the existing shell profile because addon file '{migratedAddonFile.FullName}' already exists.");
         }
 
-        if (envManagerProfileFile.Exists
-            && !string.Equals(File.ReadAllText(envManagerProfileFile.FullName), envManagerProfileContent, StringComparison.Ordinal))
+        if (pathAddonFile.Exists
+            && !string.Equals(File.ReadAllText(pathAddonFile.FullName), pathAddonContent, StringComparison.Ordinal))
         {
-            throw new ConfigurationException($"EnvManager profile '{envManagerProfileFile.FullName}' was modified. Preserve or restore it before reinstalling shell integration.");
+            throw new ConfigurationException($"EnvManager addon file '{pathAddonFile.FullName}' was modified. Preserve or restore it before reinstalling shell integration.");
         }
 
-        string? migrationTemporaryFile = null;
-        bool migratedProfileCreated = false;
+        string? addonTemporaryFile = null;
+        bool migratedAddonCreated = false;
 
         try
         {
-            foreach ((FileInfo profileFile, _, _) in profiles)
+            foreach ((FileInfo shellProfileFile, _, _) in shellProfileFiles)
             {
-                profileFile.Directory?.Create();
-                string profileDirectory = profileFile.DirectoryName
-                    ?? throw new IOException($"Could not determine the profile directory for '{profileFile.FullName}'.");
-                string temporaryFile = Path.Combine(profileDirectory, $".{profileFile.Name}.{Guid.NewGuid():N}.tmp");
-                stagedFiles.Add((profileFile, temporaryFile));
-                File.WriteAllText(temporaryFile, profile.Content);
+                shellProfileFile.Directory?.Create();
+                string profileDirectory = shellProfileFile.DirectoryName
+                    ?? throw new IOException($"Could not determine the shell profile directory for '{shellProfileFile.FullName}'.");
+                string temporaryFile = Path.Combine(profileDirectory, $".{shellProfileFile.Name}.{Guid.NewGuid():N}.tmp");
+                stagedFiles.Add((shellProfileFile, temporaryFile));
+                File.WriteAllText(temporaryFile, shellProfile.ShellProfileLoaderContent);
             }
 
             Directory.CreateDirectory(Path.Combine(this.homeDirectory.FullName, ".EnvManager", normalizedName));
-            if (!envManagerProfileFile.Exists)
+            if (!pathAddonFile.Exists)
             {
-                string envManagerDirectory = envManagerProfileFile.DirectoryName
-                    ?? throw new IOException($"Could not determine the profile directory for '{envManagerProfileFile.FullName}'.");
+                string envManagerDirectory = pathAddonFile.DirectoryName
+                    ?? throw new IOException($"Could not determine the addon directory for '{pathAddonFile.FullName}'.");
                 Directory.CreateDirectory(envManagerDirectory);
-                string temporaryFile = Path.Combine(envManagerDirectory, $".{envManagerProfileFile.Name}.{Guid.NewGuid():N}.tmp");
-                profiles.Add((envManagerProfileFile, false, []));
-                stagedFiles.Add((envManagerProfileFile, temporaryFile));
-                File.WriteAllText(temporaryFile, envManagerProfileContent);
+                string temporaryFile = Path.Combine(envManagerDirectory, $".{pathAddonFile.Name}.{Guid.NewGuid():N}.tmp");
+                shellProfileFiles.Add((pathAddonFile, false, []));
+                stagedFiles.Add((pathAddonFile, temporaryFile));
+                File.WriteAllText(temporaryFile, pathAddonContent);
             }
 
-            if (migrationContents.Count > 0)
+            if (addonContents.Count > 0)
             {
-                migratedProfileFile.Directory?.Create();
-                string migrationDirectory = migratedProfileFile.DirectoryName
-                    ?? throw new IOException($"Could not determine the profile directory for '{migratedProfileFile.FullName}'.");
-                migrationTemporaryFile = Path.Combine(migrationDirectory, $".{migratedProfileFile.Name}.{Guid.NewGuid():N}.tmp");
-                if (migrationContentBytes.Count == 1)
+                migratedAddonFile.Directory?.Create();
+                string addonDirectory = migratedAddonFile.DirectoryName
+                    ?? throw new IOException($"Could not determine the addon directory for '{migratedAddonFile.FullName}'.");
+                addonTemporaryFile = Path.Combine(addonDirectory, $".{migratedAddonFile.Name}.{Guid.NewGuid():N}.tmp");
+                if (addonContentBytes.Count == 1)
                 {
-                    File.WriteAllBytes(migrationTemporaryFile, migrationContentBytes[0]);
+                    File.WriteAllBytes(addonTemporaryFile, addonContentBytes[0]);
                 }
                 else
                 {
-                    File.WriteAllText(migrationTemporaryFile, string.Join(Environment.NewLine, migrationContents));
+                    File.WriteAllText(addonTemporaryFile, string.Join(Environment.NewLine, addonContents));
                 }
 
-                File.Move(migrationTemporaryFile, migratedProfileFile.FullName);
-                migratedProfileCreated = true;
+                File.Move(addonTemporaryFile, migratedAddonFile.FullName);
+                migratedAddonCreated = true;
             }
 
-            foreach ((FileInfo profileFile, string temporaryFile) in stagedFiles)
+            foreach ((FileInfo file, string temporaryFile) in stagedFiles)
             {
-                File.Move(temporaryFile, profileFile.FullName, overwrite: true);
+                File.Move(temporaryFile, file.FullName, overwrite: true);
             }
 
-            List<string> installedPaths = [.. profile.ProfilePaths];
-            installedPaths.Add(Path.Combine(".EnvManager", normalizedName, envManagerProfileFile.Name)
+            List<string> installedPaths = [.. shellProfile.ShellProfilePaths];
+            installedPaths.Add(Path.Combine(".EnvManager", normalizedName, pathAddonFile.Name)
                 .Replace(Path.DirectorySeparatorChar, '/'));
-            if (migrationContents.Count > 0 || File.Exists(migratedProfileFile.FullName))
+            if (addonContents.Count > 0 || File.Exists(migratedAddonFile.FullName))
             {
-                installedPaths.Add(Path.Combine(".EnvManager", normalizedName, migratedProfileFile.Name)
+                installedPaths.Add(Path.Combine(".EnvManager", normalizedName, migratedAddonFile.Name)
                     .Replace(Path.DirectorySeparatorChar, '/'));
             }
 
@@ -184,17 +184,17 @@ internal sealed class ShellProfileInstaller
         catch (Exception exception)
         {
             List<Exception> rollbackFailures = [];
-            foreach ((FileInfo profileFile, bool existed, byte[] originalContent) in profiles)
+            foreach ((FileInfo shellProfileFile, bool existed, byte[] originalContent) in shellProfileFiles)
             {
                 try
                 {
                     if (existed)
                     {
-                        File.WriteAllBytes(profileFile.FullName, originalContent);
+                        File.WriteAllBytes(shellProfileFile.FullName, originalContent);
                     }
-                    else if (profileFile.Exists)
+                    else if (shellProfileFile.Exists)
                     {
-                        profileFile.Delete();
+                        shellProfileFile.Delete();
                     }
                 }
                 catch (Exception rollbackException)
@@ -203,11 +203,11 @@ internal sealed class ShellProfileInstaller
                 }
             }
 
-            if (migratedProfileCreated)
+            if (migratedAddonCreated)
             {
                 try
                 {
-                    migratedProfileFile.Delete();
+                    migratedAddonFile.Delete();
                 }
                 catch (Exception rollbackException)
                 {
@@ -218,7 +218,7 @@ internal sealed class ShellProfileInstaller
             if (rollbackFailures.Count > 0)
             {
                 rollbackFailures.Insert(0, exception);
-                throw new IOException("Shell profile installation failed and rollback was incomplete.", new AggregateException(rollbackFailures));
+                throw new IOException("Shell profile and addon installation failed and rollback was incomplete.", new AggregateException(rollbackFailures));
             }
 
             throw;
@@ -230,61 +230,61 @@ internal sealed class ShellProfileInstaller
                 File.Delete(temporaryFile);
             }
 
-            if (migrationTemporaryFile is not null)
+            if (addonTemporaryFile is not null)
             {
-                File.Delete(migrationTemporaryFile);
+                File.Delete(addonTemporaryFile);
             }
         }
     }
 
-    /// <summary>Restores backed-up profile files or removes loader files created by EnvManager.</summary>
+    /// <summary>Restores shell profile backups and removes addon files created by EnvManager.</summary>
     /// <param name="shellName">A supported shell name.</param>
     public void Uninstall(string shellName)
     {
         string normalizedName = this.NormalizeShellName(shellName);
-        ShellProfile profile = this.GetProfile(normalizedName);
-        List<(FileInfo ProfileFile, FileInfo BackupFile)> profiles = [];
-        FileInfo envManagerProfileFile = new(Path.Combine(this.homeDirectory.FullName, ".EnvManager", normalizedName, $"01_EnvManager{profile.MigrationExtension}"));
-        if (envManagerProfileFile.Exists
-            && !string.Equals(File.ReadAllText(envManagerProfileFile.FullName), GetEnvManagerProfileContent(normalizedName), StringComparison.Ordinal))
+        ShellProfileDefinition shellProfile = this.GetShellProfileDefinition(normalizedName);
+        List<(FileInfo ShellProfileFile, FileInfo BackupFile)> shellProfileFiles = [];
+        FileInfo pathAddonFile = new(Path.Combine(this.homeDirectory.FullName, ".EnvManager", normalizedName, $"01_EnvManager{shellProfile.AddonExtension}"));
+        if (pathAddonFile.Exists
+            && !string.Equals(File.ReadAllText(pathAddonFile.FullName), GetPathAddonContent(normalizedName), StringComparison.Ordinal))
         {
-            throw new ConfigurationException($"EnvManager profile '{envManagerProfileFile.FullName}' has changed since EnvManager installed it. It was left untouched.");
+            throw new ConfigurationException($"EnvManager addon file '{pathAddonFile.FullName}' has changed since EnvManager installed it. It was left untouched.");
         }
 
-        foreach (string relativePath in profile.ProfilePaths)
+        foreach (string relativePath in shellProfile.ShellProfilePaths)
         {
-            FileInfo profileFile = new(Path.Combine(this.homeDirectory.FullName, relativePath));
+            FileInfo shellProfileFile = new(Path.Combine(this.homeDirectory.FullName, relativePath));
             FileInfo backupFile = this.GetBackupFile(normalizedName, relativePath);
 
-            if (profileFile.Exists && !IsInstalledProfile(normalizedName, profile, File.ReadAllText(profileFile.FullName)))
+            if (shellProfileFile.Exists && !IsInstalledShellProfile(normalizedName, shellProfile, File.ReadAllText(shellProfileFile.FullName)))
             {
-                throw new ConfigurationException($"Shell profile '{profileFile.FullName}' has changed since EnvManager installed its loader. It was left untouched.");
+                throw new ConfigurationException($"Shell profile '{shellProfileFile.FullName}' has changed since EnvManager installed its loader. It was left untouched.");
             }
 
-            profiles.Add((profileFile, backupFile));
+            shellProfileFiles.Add((shellProfileFile, backupFile));
         }
 
-        if (envManagerProfileFile.Exists)
+        if (pathAddonFile.Exists)
         {
-            envManagerProfileFile.Delete();
+            pathAddonFile.Delete();
         }
 
-        foreach ((FileInfo profileFile, FileInfo backupFile) in profiles)
+        foreach ((FileInfo shellProfileFile, FileInfo backupFile) in shellProfileFiles)
         {
             if (backupFile.Exists)
             {
-                profileFile.Directory?.Create();
-                File.Copy(backupFile.FullName, profileFile.FullName, overwrite: true);
+                shellProfileFile.Directory?.Create();
+                File.Copy(backupFile.FullName, shellProfileFile.FullName, overwrite: true);
                 backupFile.Delete();
             }
-            else if (profileFile.Exists)
+            else if (shellProfileFile.Exists)
             {
-                profileFile.Delete();
+                shellProfileFile.Delete();
             }
         }
     }
 
-    private static bool IsInstalledProfile(string shellName, ShellProfile profile, string content)
+    private static bool IsInstalledShellProfile(string shellName, ShellProfileDefinition shellProfile, string content)
     {
         string legacyContent = shellName switch
         {
@@ -305,12 +305,12 @@ internal sealed class ShellProfileInstaller
             _ => throw new ConfigurationException($"Unsupported shell '{shellName}'."),
         };
 
-        return string.Equals(content, profile.Content, StringComparison.Ordinal)
+        return string.Equals(content, shellProfile.ShellProfileLoaderContent, StringComparison.Ordinal)
             || string.Equals(content, legacyContent, StringComparison.Ordinal)
             || string.Equals(content, previousContent, StringComparison.Ordinal);
     }
 
-    private static string GetEnvManagerProfileContent(string shellName)
+    private static string GetPathAddonContent(string shellName)
         => shellName switch
         {
             "bash" or "zsh" => "export PATH=\"$HOME/.local/bin:$PATH\"\n",
@@ -320,9 +320,9 @@ internal sealed class ShellProfileInstaller
             _ => throw new ConfigurationException($"Unsupported shell '{shellName}'."),
         };
 
-    private ShellProfile GetProfile(string shellName)
+    private ShellProfileDefinition GetShellProfileDefinition(string shellName)
     {
-        string[] profilePaths = shellName switch
+        string[] shellProfilePaths = shellName switch
         {
             "bash" => [".bashrc", ".bash_profile"],
             "zsh" => [".zshrc", ".zprofile"],
@@ -333,7 +333,7 @@ internal sealed class ShellProfileInstaller
             _ => throw new ConfigurationException($"Unsupported shell '{shellName}'."),
         };
 
-        string content = shellName switch
+        string shellProfileLoaderContent = shellName switch
         {
             "bash" => BashProfile,
             "zsh" => ZshProfile,
@@ -343,7 +343,7 @@ internal sealed class ShellProfileInstaller
             _ => throw new ConfigurationException($"Unsupported shell '{shellName}'."),
         };
 
-        string migrationExtension = shellName switch
+        string addonExtension = shellName switch
         {
             "bash" or "zsh" => ".sh",
             "fish" => ".fish",
@@ -352,7 +352,7 @@ internal sealed class ShellProfileInstaller
             _ => throw new ConfigurationException($"Unsupported shell '{shellName}'."),
         };
 
-        return new ShellProfile(profilePaths, content, migrationExtension);
+        return new ShellProfileDefinition(shellProfilePaths, shellProfileLoaderContent, addonExtension);
     }
 
     private FileInfo GetBackupFile(string shellName, string relativePath)
@@ -366,5 +366,5 @@ internal sealed class ShellProfileInstaller
             relativePath));
     }
 
-    private sealed record ShellProfile(string[] ProfilePaths, string Content, string MigrationExtension);
+    private sealed record ShellProfileDefinition(string[] ShellProfilePaths, string ShellProfileLoaderContent, string AddonExtension);
 }

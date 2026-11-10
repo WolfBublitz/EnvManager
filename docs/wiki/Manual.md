@@ -47,7 +47,7 @@ EnvManager push
 
 ### Variables
 
-Variables are exported by enabled shell profiles when a new shell starts:
+Variables are exported by addon files loaded by enabled shell profiles when a new shell starts:
 
 ```bash
 EnvManager variable set EDITOR nvim
@@ -84,10 +84,11 @@ EnvManager shells list
 EnvManager shells remove zsh
 ```
 
-Adding a shell copies the existing profile into `$HOME/.EnvManager/<shell>/00_Profile`,
-replaces the original profile with a loader, and adds a `01_EnvManager` script that
-adds `$HOME/.local/bin` to `PATH`. The repository's shell scripts run at shell startup,
-so review a configuration repository before trusting it.
+Adding a shell replaces its shell profile (the file loaded directly by the shell, such
+as `.bashrc`) with a loader. Existing shell profile contents are preserved as addon files
+under `$HOME/.EnvManager/<shell>/`, including the `00_Profile` addon file and a
+`01_EnvManager` addon file that adds `$HOME/.local/bin` to `PATH`. Addon files run at
+shell startup, so review a configuration repository before trusting it.
 
 ### Files
 
