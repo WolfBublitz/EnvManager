@@ -13,10 +13,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.DotNet.ILCompiler" />
-  </ItemGroup>
-
-  <ItemGroup>
     <InternalsVisibleTo Include="EnvManager.Tests" />
   </ItemGroup>
 
