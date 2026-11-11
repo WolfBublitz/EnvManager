@@ -10,6 +10,7 @@
     <InvariantGlobalization>true</InvariantGlobalization>
     <RootNamespace>EnvManager</RootNamespace>
     <AssemblyName>EnvManager</AssemblyName>
+    <Features>runtime-async=on</Features>
   </PropertyGroup>
 
   <ItemGroup>
