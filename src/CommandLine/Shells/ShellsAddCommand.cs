@@ -70,7 +70,7 @@ public sealed class ShellsAddCommand : Command
             if (!alreadyConfigured)
             {
                 configuration.Shells.Add(normalizedName);
-                await repository.SaveConfigurationAsync(configuration, $"Enable shell '{normalizedName}'.", cancellationToken).ConfigureAwait(false);
+                await repository.SaveConfigurationAsync(configuration, $"Enable shell '{normalizedName}'.", pushToRemote: false, cancellationToken: cancellationToken).ConfigureAwait(false);
             }
             else if (addedFiles)
             {
