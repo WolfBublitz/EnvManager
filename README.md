@@ -41,45 +41,6 @@ The installer makes the executable runnable and adds `$HOME/.local/bin` to your 
 PATH if needed. On Linux, the installer does not verify the release's GitHub
 build-provenance attestation.
 
-To download an executable manually, open the
-[latest release](https://github.com/WolfBublitz/EnvManager/releases/latest) and select the
-asset for your platform:
-
-| Platform | Release asset |
-| --- | --- |
-| Linux x64 | `EnvManager-linux-x64` |
-| Linux ARM64 | `EnvManager-linux-arm64` |
-| macOS Apple silicon (ARM64) | `EnvManager-macos-arm64` |
-
-For example, to download the Linux x64 executable and install it to `$HOME/.local/bin`:
-
-```bash
-mkdir -p "$HOME/.local/bin"
-curl -fL https://github.com/WolfBublitz/EnvManager/releases/latest/download/EnvManager-linux-x64 \
-  -o "$HOME/.local/bin/EnvManager"
-chmod 755 "$HOME/.local/bin/EnvManager"
-```
-
-Replace `EnvManager-linux-x64` with the release asset for your platform. If
-`$HOME/.local/bin` is not already on your PATH, add it to the Bash startup file used by
-your terminal. For Linux Bash, use `~/.bashrc`:
-
-```bash
-echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
-source ~/.bashrc
-```
-
-For a macOS Bash login shell, use `~/.bash_profile` instead:
-
-```bash
-echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bash_profile
-source ~/.bash_profile
-```
-
-The install script handles PATH setup automatically.
-On macOS, prefer the install script because it verifies the release's build provenance;
-manual downloads do not.
-
 ### Windows
 
 In PowerShell, install the latest release with:
@@ -92,7 +53,29 @@ Downloads `EnvManager.exe`, installs it to `$HOME\.local\bin` (creating the
 directory if needed), and adds that directory to your user `PATH`. The installer requires
 the GitHub CLI (`gh`) and verifies the release attestation before installing.
 
-### Enable Bash integration
+### Installer options
+
+The shell installer accepts these options:
+
+| Option | Description |
+| --- | --- |
+| `--version <version>` | Installs a specific release instead of the latest release. |
+| `--install-dir <directory>` | Installs the executable into a specific directory. |
+| `--help` | Displays installer help. |
+
+For example, pass options to the shell script:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/WolfBublitz/EnvManager/refs/heads/master/install.sh | bash -s -- --version 1.0.0 --install-dir "$HOME/bin"
+```
+
+The PowerShell installer exposes the equivalent `-Version` and `-InstallDir` parameters:
+
+```pwsh
+& ([scriptblock]::Create((irm "https://raw.githubusercontent.com/WolfBublitz/EnvManager/refs/heads/master/install.ps1" -UseBasicParsing))) -Version 1.0.0 -InstallDir "$HOME\bin"
+```
+
+## Enable Bash integration
 
 After installing EnvManager, initialize a local environment configuration or clone an
 existing one, then enable Bash:
@@ -114,28 +97,7 @@ to load the integration. If the configuration has no Git remote, the changes are
 committed locally and can be pushed after you configure one. See [Shells](#shells) for
 details about shell profiles and addon files.
 
-### Installer options
-
-The shell installer accepts these options:
-
-| Option | Description |
-| --- | --- |
-| `--version <version>` | Installs a specific release instead of the latest release. |
-| `--install-dir <directory>` | Installs the executable into a specific directory. |
-| `--help` | Displays installer help. |
-
-For example, download the shell script to pass options:
-
-```bash
-curl -fsSLO https://raw.githubusercontent.com/WolfBublitz/EnvManager/refs/heads/master/install.sh
-bash install.sh --version 1.0.0 --install-dir "$HOME/bin"
-```
-
-The PowerShell installer exposes the equivalent `-Version` and `-InstallDir` parameters:
-
-```pwsh
-& ([scriptblock]::Create((irm "https://raw.githubusercontent.com/WolfBublitz/EnvManager/refs/heads/master/install.ps1" -UseBasicParsing))) -Version 1.0.0 -InstallDir "$HOME\bin"
-```
+## Development
 
 ### Build from source
 
