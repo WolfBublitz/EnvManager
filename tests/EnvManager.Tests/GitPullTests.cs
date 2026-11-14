@@ -107,7 +107,7 @@ public sealed class GitPullTests
     }
 
     [Test]
-    public async Task PullReplacesDivergedBranchAndConflictingFiles()
+    public async Task PullPreservesDivergedBranchAndConflictingFiles()
     {
         DirectoryInfo root = CreateRoot();
 
@@ -135,19 +135,19 @@ public sealed class GitPullTests
             await RunGitAsync(source, "add", ".");
             await RunGitAsync(source, "commit", "-m", "remote change");
             await RunGitAsync(source, "push", "origin", "main");
-            string remoteCommit = await RunGitAsync(source, "rev-parse", "HEAD");
+            string localCommit = await RunClientAsync(client, "rev-parse", "HEAD");
 
-            await client.PullAsync();
+            await Assert.That(async () => await client.PullAsync()).Throws<GitCommandException>();
 
-            await Assert.That(await RunClientAsync(client, "rev-parse", "HEAD")).IsEqualTo(remoteCommit);
+            await Assert.That(await RunClientAsync(client, "rev-parse", "HEAD")).IsEqualTo(localCommit);
             await Assert.That(await RunClientAsync(client, "symbolic-ref", "--short", "HEAD")).IsEqualTo("main");
-            await Assert.That(File.ReadAllText(Path.Combine(home, "settings"))).IsEqualTo("remote change");
-            await Assert.That(File.ReadAllText(Path.Combine(home, "incoming"))).IsEqualTo("remote file");
-            await Assert.That(File.ReadAllText(Path.Combine(home, "incoming-directory"))).IsEqualTo("remote replaces directory");
+            await Assert.That(File.ReadAllText(Path.Combine(home, "settings"))).IsEqualTo("local unstaged");
+            await Assert.That(await RunClientAsync(client, "show", ":settings")).IsEqualTo("local staged");
+            await Assert.That(File.ReadAllText(Path.Combine(home, "incoming"))).IsEqualTo("untracked conflict");
+            await Assert.That(File.ReadAllText(Path.Combine(home, "incoming-directory", "untracked"))).IsEqualTo("obstruction");
             await Assert.That(File.ReadAllText(Path.Combine(home, "unrelated"))).IsEqualTo("keep me");
-            await Assert.That(File.Exists(Path.Combine(home, "local-only"))).IsFalse();
-            await Assert.That(File.Exists(Path.Combine(home, "obsolete"))).IsFalse();
-            await Assert.That(await RunClientAsync(client, "status", "--porcelain", "--untracked-files=no")).IsEqualTo(string.Empty);
+            await Assert.That(File.Exists(Path.Combine(home, "local-only"))).IsTrue();
+            await Assert.That(File.Exists(Path.Combine(home, "obsolete"))).IsTrue();
         }
         finally
         {
@@ -156,7 +156,7 @@ public sealed class GitPullTests
     }
 
     [Test]
-    public async Task PullRestoresLocalChangesEvenWhenRemoteHasNotAdvanced()
+    public async Task PullKeepsLocalChangesWhenRemoteHasNotAdvanced()
     {
         DirectoryInfo root = CreateRoot();
 
@@ -170,8 +170,8 @@ public sealed class GitPullTests
 
             await client.PullAsync();
 
-            await Assert.That(File.ReadAllText(settings)).IsEqualTo("initial");
-            await Assert.That(await RunClientAsync(client, "status", "--porcelain", "--untracked-files=no")).IsEqualTo(string.Empty);
+            await Assert.That(File.ReadAllText(settings)).IsEqualTo("modified again");
+            await Assert.That(await RunClientAsync(client, "show", ":settings")).IsEqualTo("modified");
         }
         finally
         {
@@ -243,7 +243,7 @@ public sealed class GitPullTests
             await Assert.That(output).Contains("D\tobsolete");
             await Assert.That(output).Contains("MM settings");
             await Assert.That(output).Contains("local change");
-            await Assert.That(output).Contains("may overwrite or remove existing files or directories");
+            await Assert.That(output).Contains("may conflict with existing files or directories");
             await Assert.That(output).Contains("cancelled");
             await Assert.That(await RunClientAsync(client, "rev-parse", "HEAD")).IsEqualTo(localCommit);
             await Assert.That(await RunClientAsync(client, "show", ":settings")).IsEqualTo("staged");
@@ -265,7 +265,6 @@ public sealed class GitPullTests
         {
             (DirectoryInfo source, GitClient client) = await CreateRepositoriesAsync(root);
             string settings = Path.Combine(client.WorkingDirectory.FullName, "settings");
-            File.WriteAllText(settings, "local");
             File.WriteAllText(Path.Combine(source.FullName, "settings"), "remote");
             await RunGitAsync(source, "add", "settings");
             await RunGitAsync(source, "commit", "-m", "remote change");
@@ -345,7 +344,33 @@ public sealed class GitPullTests
             await Assert.That(exitCode).IsEqualTo(0);
             await Assert.That(output).Contains("settings");
             await Assert.That(output.Contains("Apply this pull?")).IsFalse();
-            await Assert.That(File.ReadAllText(settings)).IsEqualTo("initial");
+            await Assert.That(File.ReadAllText(settings)).IsEqualTo("local");
+        }
+        finally
+        {
+            Directory.Delete(root.FullName, recursive: true);
+        }
+    }
+
+    [Test]
+    public async Task PullCommandYesDoesNotDiscardConflictingChanges()
+    {
+        DirectoryInfo root = CreateRoot();
+        try
+        {
+            (DirectoryInfo source, GitClient client) = await CreateRepositoriesAsync(root);
+            string settings = Path.Combine(client.WorkingDirectory.FullName, "settings");
+            File.WriteAllText(settings, "local");
+            File.WriteAllText(Path.Combine(source.FullName, "settings"), "remote");
+            await RunGitAsync(source, "add", "settings");
+            await RunGitAsync(source, "commit", "-m", "remote change");
+            await RunGitAsync(source, "push", "origin", "main");
+            string originalHead = await RunClientAsync(client, "rev-parse", "HEAD");
+
+            await Assert.That(async () => await RunPullCommandAsync(client.WorkingDirectory.FullName, string.Empty, "--yes"))
+                .Throws<InvalidOperationException>();
+            await Assert.That(File.ReadAllText(settings)).IsEqualTo("local");
+            await Assert.That(await RunClientAsync(client, "rev-parse", "HEAD")).IsEqualTo(originalHead);
         }
         finally
         {
@@ -366,7 +391,7 @@ public sealed class GitPullTests
             await RunGitAsync(source, "commit", "-m", "advance remote");
             await RunGitAsync(source, "push", "origin", "main");
 
-            await client.ApplyPullAsync(target);
+            await client.FastForwardPullAsync(target);
 
             await Assert.That(await RunClientAsync(client, "rev-parse", "HEAD")).IsEqualTo(target);
             await Assert.That(File.ReadAllText(Path.Combine(client.WorkingDirectory.FullName, "settings"))).IsEqualTo("initial");

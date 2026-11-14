@@ -4,7 +4,9 @@
 // │ Created: 2026-09-18                                                            │
 // └────────────────────────────────────────────────────────────────────────────────┘
 
+using System;
 using System.CommandLine;
+using System.IO;
 
 using EnvManager.Configuration;
 
@@ -25,22 +27,55 @@ public sealed class FilesAddCommand : Command
     public FilesAddCommand()
         : base("add", "Adds a new file or configuration to the repository.")
     {
-        Argument<string> fileNameArgument = new("file_name")
+        Argument<string[]> fileNameArgument = new("file_name")
         {
-            Description = "The path of the file to add, relative to the current working directory (or an absolute path inside the home directory).",
+            Description = "Files to add, relative to the current working directory (or absolute paths inside the home directory).",
+            Arity = ArgumentArity.OneOrMore,
         };
 
         this.Add(fileNameArgument);
 
         this.SetAction((parseResult, cancellationToken) => CommandExecutor.RunAsync(async () =>
         {
-            string fileName = parseResult.GetValue(fileNameArgument)!;
+            string[] fileNames = parseResult.GetValue(fileNameArgument)!;
 
             EnvironmentRepository repository = EnvironmentRepository.OpenExisting();
 
-            await repository.AddFileAsync(fileName, cancellationToken).ConfigureAwait(false);
+            foreach (string fileName in fileNames)
+            {
+                string path = EnvironmentRepository.ResolveRelativePath(fileName, Environment.CurrentDirectory);
+                string fullPath = Path.Combine(EnvManagerPaths.HomeDirectory.FullName, path);
+                if (!File.Exists(fullPath))
+                {
+                    throw new EnvManager.Exceptions.ConfigurationException($"File '{fileName}' was not found at '{fullPath}'.");
+                }
+            }
 
-            ConsoleReporter.Success($"Staged file '{fileName}' for addition. Run 'EnvManager push' to commit and publish it.");
+            foreach (string fileName in fileNames)
+            {
+                string path = EnvironmentRepository.ResolveRelativePath(fileName, Environment.CurrentDirectory);
+                if (MayContainSecrets(path))
+                {
+                    ConsoleReporter.Warning($"'{path}' may contain secrets. Tracked files can be committed and published; review it before pushing.");
+                }
+                await repository.AddFileAsync(fileName, cancellationToken).ConfigureAwait(false);
+                ConsoleReporter.Success($"Staged '{path}' for addition.");
+            }
+
+            ConsoleReporter.Info("Run 'EnvManager push' to commit and publish staged files.");
         }));
+    }
+
+    internal static bool MayContainSecrets(string path)
+    {
+        string normalized = $"/{path.Replace('\\', '/')}";
+        string name = Path.GetFileName(path);
+        return normalized.Contains("/.ssh/", StringComparison.OrdinalIgnoreCase)
+            || normalized.Contains("/.aws/", StringComparison.OrdinalIgnoreCase)
+            || name.Equals(".env", StringComparison.OrdinalIgnoreCase)
+            || name.StartsWith(".env.", StringComparison.OrdinalIgnoreCase)
+            || name.Equals("credentials", StringComparison.OrdinalIgnoreCase)
+            || name.EndsWith(".pem", StringComparison.OrdinalIgnoreCase)
+            || name.EndsWith(".key", StringComparison.OrdinalIgnoreCase);
     }
 }

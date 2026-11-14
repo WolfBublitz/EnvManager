@@ -216,7 +216,15 @@ public sealed class EnvironmentRepository
     /// <param name="configuration">The configuration to persist.</param>
     /// <param name="commitMessage">The git commit message describing the change.</param>
     /// <param name="cancellationToken">A token to cancel the operation.</param>
-    public async Task SaveConfigurationAsync(EnvironmentConfiguration configuration, string commitMessage, CancellationToken cancellationToken = default)
+    public Task SaveConfigurationAsync(EnvironmentConfiguration configuration, string commitMessage, CancellationToken cancellationToken = default)
+        => this.SaveConfigurationAsync(configuration, commitMessage, pushToRemote: true, cancellationToken: cancellationToken);
+
+    /// <summary>Persists and commits the given configuration, optionally publishing it to the remote.</summary>
+    /// <param name="configuration">The configuration to persist.</param>
+    /// <param name="commitMessage">The git commit message describing the change.</param>
+    /// <param name="pushToRemote">Whether to push the configuration commit to the remote.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    public async Task SaveConfigurationAsync(EnvironmentConfiguration configuration, string commitMessage, bool pushToRemote, CancellationToken cancellationToken = default)
     {
         if (this.serializer.Save(EnvManagerPaths.EnvironmentFile, configuration))
         {
@@ -230,7 +238,7 @@ public sealed class EnvironmentRepository
         bool configurationChanged = await this.Git.HasStagedChangesForFileAsync(EnvManagerPaths.EnvironmentFileRelativePath, cancellationToken).ConfigureAwait(false);
         await this.Git.CommitAsync(commitMessage, cancellationToken).ConfigureAwait(false);
 
-        if (configurationChanged)
+        if (configurationChanged && pushToRemote)
         {
             await this.PushConfigurationAsync(cancellationToken).ConfigureAwait(false);
         }
@@ -340,7 +348,7 @@ public sealed class EnvironmentRepository
     /// <param name="cancellationToken">A token to cancel the operation.</param>
     public async Task RemoveFileAsync(string fileName, CancellationToken cancellationToken = default)
     {
-        string relativePath = ResolveRelativePath(fileName, EnvManagerPaths.HomeDirectory.FullName);
+        string relativePath = ResolveRelativePath(fileName, Environment.CurrentDirectory);
 
         if (!await this.Git.IsTrackedAsync(relativePath, cancellationToken).ConfigureAwait(false))
         {
@@ -457,7 +465,7 @@ public sealed class EnvironmentRepository
         return $"Update {changes.Count} files.";
     }
 
-    /// <summary>Replaces the current environment with the remote branch, discarding local changes and divergent commits.</summary>
+    /// <summary>Fast-forwards the current environment to the remote branch when safe.</summary>
     /// <param name="cancellationToken">A token to cancel the operation.</param>
     public Task PullAsync(CancellationToken cancellationToken = default)
         => this.Git.PullAsync(cancellationToken);
@@ -476,7 +484,7 @@ public sealed class EnvironmentRepository
     /// <exception cref="ConfigurationException">
     /// Thrown when the resolved path falls outside of the home directory.
     /// </exception>
-    private static string ResolveRelativePath(string fileName, string baseDirectory)
+    internal static string ResolveRelativePath(string fileName, string baseDirectory)
     {
         string homeDirectory = ResolveDirectoryPath(EnvManagerPaths.HomeDirectory.FullName);
 

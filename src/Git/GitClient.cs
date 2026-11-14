@@ -38,6 +38,7 @@ namespace EnvManager.Git;
 /// </remarks>
 public sealed class GitClient
 {
+    private readonly List<string> backupsCreated = [];
     // ┌────────────────────────────────────────────────────────────────────────────────┐
     // │ public Constructor                                                              │
     // └────────────────────────────────────────────────────────────────────────────────┘
@@ -65,6 +66,9 @@ public sealed class GitClient
 
     /// <summary>Gets a value indicating whether <see cref="GitDirectory"/> already holds a bare git repository.</summary>
     public bool IsRepository => File.Exists(Path.Combine(this.GitDirectory.FullName, "HEAD"));
+
+    /// <summary>Gets backup directories created by this client during the current operation.</summary>
+    public IReadOnlyList<string> BackupsCreated => this.backupsCreated;
 
     // ┌────────────────────────────────────────────────────────────────────────────────┐
     // │ public Method                                                                   │
@@ -99,8 +103,9 @@ public sealed class GitClient
 
         if (await this.BranchExistsLocallyAsync(branch, cancellationToken).ConfigureAwait(false))
         {
-            await this.PreserveOverwrittenFilesAsync(branch, includeCurrentBranchFiles: false, cancellationToken).ConfigureAwait(false);
+            IReadOnlyList<string> preserved = await this.PreserveOverwrittenFilesAsync(branch, includeCurrentBranchFiles: false, cancellationToken).ConfigureAwait(false);
             await this.RunOrThrowAsync(["checkout", branch], cancellationToken).ConfigureAwait(false);
+            await this.RestorePreservedCheckoutFilesAsync(preserved, cancellationToken).ConfigureAwait(false);
         }
     }
 
@@ -139,16 +144,18 @@ public sealed class GitClient
                 return;
             }
 
-            await this.PreserveOverwrittenFilesAsync(branch, includeCurrentBranchFiles: true, cancellationToken).ConfigureAwait(false);
+            IReadOnlyList<string> preserved = await this.PreserveOverwrittenFilesAsync(branch, includeCurrentBranchFiles: true, cancellationToken).ConfigureAwait(false);
             await this.RunOrThrowAsync(["checkout", branch], cancellationToken).ConfigureAwait(false);
+            await this.RestorePreservedCheckoutFilesAsync(preserved, cancellationToken).ConfigureAwait(false);
             return;
         }
 
         if (await this.RemoteBranchExistsAsync(branch, cancellationToken).ConfigureAwait(false))
         {
             await this.RunOrThrowAsync(["fetch", "origin", $"{branch}:{branch}"], cancellationToken).ConfigureAwait(false);
-            await this.PreserveOverwrittenFilesAsync(branch, includeCurrentBranchFiles: true, cancellationToken).ConfigureAwait(false);
+            IReadOnlyList<string> preserved = await this.PreserveOverwrittenFilesAsync(branch, includeCurrentBranchFiles: true, cancellationToken).ConfigureAwait(false);
             await this.RunOrThrowAsync(["checkout", branch], cancellationToken).ConfigureAwait(false);
+            await this.RestorePreservedCheckoutFilesAsync(preserved, cancellationToken).ConfigureAwait(false);
             return;
         }
 
@@ -247,6 +254,18 @@ public sealed class GitClient
             .Contains("origin", StringComparer.Ordinal);
     }
 
+    /// <summary>Adds or updates the origin remote.</summary>
+    public async Task SetRemoteAsync(string url, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(url) || url.StartsWith('-'))
+        {
+            throw new ConfigurationException("Provide a valid Git remote URL or path.");
+        }
+
+        bool exists = await this.HasRemoteAsync(cancellationToken).ConfigureAwait(false);
+        await this.RunOrThrowAsync(exists ? ["remote", "set-url", "origin", url] : ["remote", "add", "origin", url], cancellationToken).ConfigureAwait(false);
+    }
+
     /// <summary>Determines whether there are changes staged for commit.</summary>
     /// <param name="cancellationToken">A token to cancel the operation.</param>
     public async Task<bool> HasStagedChangesAsync(CancellationToken cancellationToken = default)
@@ -289,7 +308,7 @@ public sealed class GitClient
     /// <param name="relativePath">The repository-relative path to stage.</param>
     /// <param name="cancellationToken">A token to cancel the operation.</param>
     public Task AddAsync(string relativePath, CancellationToken cancellationToken = default)
-        => this.RunOrThrowAsync(["add", relativePath], cancellationToken);
+        => this.RunOrThrowAsync(["add", "--", relativePath], cancellationToken);
 
     /// <summary>
     /// Stops tracking the given path (relative to <see cref="WorkingDirectory"/>) without
@@ -470,15 +489,25 @@ public sealed class GitClient
         await this.RunOrThrowAsync(["push", "--set-upstream", "origin", branch], cancellationToken).ConfigureAwait(false);
     }
 
+    /// <summary>Publishes a local environment branch without changing the active branch.</summary>
+    public async Task PushBranchAsync(string branch, CancellationToken cancellationToken = default)
+    {
+        if (!await this.HasRemoteAsync(cancellationToken).ConfigureAwait(false))
+        {
+            throw new GitCommandException("push", 1, "No 'origin' remote is configured. Run 'EnvManager remote set <url>' first.");
+        }
+
+        await this.RunOrThrowAsync(["push", "origin", $"refs/heads/{branch}:refs/heads/{branch}"], cancellationToken).ConfigureAwait(false);
+    }
+
     /// <summary>
-    /// Replaces the current branch and work tree with the corresponding branch from
-    /// <c>origin</c>, discarding local changes and divergent commits.
+    /// Fetches the corresponding branch from <c>origin</c> and fast-forwards when safe.
     /// </summary>
     /// <param name="cancellationToken">A token to cancel the operation.</param>
     public async Task PullAsync(CancellationToken cancellationToken = default)
     {
         string target = await this.FetchPullTargetAsync(cancellationToken).ConfigureAwait(false);
-        await this.ApplyPullAsync(target, cancellationToken).ConfigureAwait(false);
+        await this.FastForwardPullAsync(target, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>Fetches and previews the changes and local data affected by a pull.</summary>
@@ -518,11 +547,9 @@ public sealed class GitClient
         return (target, incoming.StandardOutput, localChanges.StandardOutput, localCommits.StandardOutput, obstructions.OrderBy(path => path, StringComparer.Ordinal).ToList());
     }
 
-    /// <summary>Applies the exact commit previously fetched for a pull.</summary>
-    /// <param name="target">The fetched commit identifier.</param>
-    /// <param name="cancellationToken">A token to cancel the operation.</param>
-    public Task ApplyPullAsync(string target, CancellationToken cancellationToken = default)
-        => this.RunOrThrowAsync(["reset", "--hard", target], cancellationToken);
+    /// <summary>Fast-forwards to the fetched commit without discarding local changes.</summary>
+    public Task FastForwardPullAsync(string target, CancellationToken cancellationToken = default)
+        => this.RunOrThrowAsync(["-c", "core.bare=false", "merge", "--ff-only", "--no-edit", target], cancellationToken);
 
     private async Task<string> FetchPullTargetAsync(CancellationToken cancellationToken)
     {
@@ -577,7 +604,7 @@ public sealed class GitClient
     /// Whether files tracked by the current branch should also be preserved.
     /// </param>
     /// <param name="cancellationToken">A token to cancel the operation.</param>
-    private async Task PreserveOverwrittenFilesAsync(string? destinationBranch, bool includeCurrentBranchFiles, CancellationToken cancellationToken)
+    private async Task<IReadOnlyList<string>> PreserveOverwrittenFilesAsync(string? destinationBranch, bool includeCurrentBranchFiles, CancellationToken cancellationToken)
     {
         IReadOnlyList<string> destinationFiles = destinationBranch is null
             ? []
@@ -610,7 +637,7 @@ public sealed class GitClient
 
         if (existingFiles.Count == 0)
         {
-            return;
+            return [];
         }
 
         string backupDirectory = Path.Combine(
@@ -618,6 +645,8 @@ public sealed class GitClient
             "overwritten-files",
             $"{DateTimeOffset.UtcNow:yyyyMMddTHHmmssfffZ}-{Guid.NewGuid():N}");
 
+        Directory.CreateDirectory(backupDirectory);
+        this.backupsCreated.Add(backupDirectory);
         foreach (string relativePath in existingFiles)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -633,6 +662,46 @@ public sealed class GitClient
 
             Directory.CreateDirectory(destinationParent);
             File.Move(sourcePath, destinationPath);
+        }
+
+        return existingFiles;
+    }
+
+    private async Task RestorePreservedCheckoutFilesAsync(IReadOnlyList<string> preserved, CancellationToken cancellationToken)
+    {
+        GitCommandResult index = await this.RunOrThrowAsync(["ls-files", "-z"], cancellationToken).ConfigureAwait(false);
+        HashSet<string> tracked = new(index.StandardOutput.Split('\0', StringSplitOptions.RemoveEmptyEntries), StringComparer.Ordinal);
+        List<string> missing = preserved.Where(path =>
+        {
+            string fullPath = Path.Combine(this.WorkingDirectory.FullName, path);
+            return tracked.Contains(path)
+                && !File.Exists(fullPath)
+                && !Directory.Exists(fullPath)
+                && new FileInfo(fullPath).LinkTarget is null;
+        }).ToList();
+        if (missing.Count == 0)
+        {
+            return;
+        }
+
+        string temporaryDirectory = Path.Combine(this.GitDirectory.FullName, $"checkout-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(temporaryDirectory);
+        try
+        {
+            foreach (string path in missing)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                await this.RunOrThrowAsync(
+                    ["checkout-index", $"--prefix={temporaryDirectory}{Path.DirectorySeparatorChar}", "--", path],
+                    cancellationToken).ConfigureAwait(false);
+                string destination = Path.Combine(this.WorkingDirectory.FullName, path);
+                Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
+                File.Move(Path.Combine(temporaryDirectory, path), destination, overwrite: false);
+            }
+        }
+        finally
+        {
+            Directory.Delete(temporaryDirectory, recursive: true);
         }
     }
 

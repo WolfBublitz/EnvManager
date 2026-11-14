@@ -51,7 +51,7 @@ public sealed class GitCommandExceptionTests
 
             await Assert.That(exception.Command).Contains("git --git-dir=");
             await Assert.That(exception.Command).Contains("--work-tree=");
-            await Assert.That(exception.Command).Contains("add missing.file");
+            await Assert.That(exception.Command).Contains("add -- missing.file");
             await Assert.That(exception.ExitCode != 0).IsTrue();
             await Assert.That(exception.StandardOutput).IsEqualTo(string.Empty);
             await Assert.That(exception.StandardError.Length > 0).IsTrue();

@@ -4,9 +4,14 @@
 // │ Created: 2026-09-18                                                            │
 // └────────────────────────────────────────────────────────────────────────────────┘
 
+using System;
+using System.Collections.Generic;
 using System.CommandLine;
 
 using EnvManager.Configuration;
+using EnvManager.Exceptions;
+
+using Spectre.Console;
 
 namespace EnvManager.CommandLine;
 
@@ -24,9 +29,10 @@ public sealed class SwitchCommand : Command
     public SwitchCommand()
         : base("switch", "Switches to a different environment configuration.")
     {
-        Argument<string> environmentNameArgument = new("environment_name")
+        Argument<string?> environmentNameArgument = new("environment_name")
         {
-            Description = "The name of the environment configuration to switch to.",
+            Description = "The environment to switch to; omit to select interactively.",
+            Arity = ArgumentArity.ZeroOrOne,
         };
 
         Option<bool> createOption = new("--create", "-c")
@@ -39,13 +45,42 @@ public sealed class SwitchCommand : Command
 
         this.SetAction((parseResult, cancellationToken) => CommandExecutor.RunAsync(async () =>
         {
-            string environmentName = parseResult.GetValue(environmentNameArgument)!;
+            string? environmentName = parseResult.GetValue(environmentNameArgument);
             bool allowCreate = parseResult.GetValue(createOption);
 
             EnvironmentRepository repository = EnvironmentRepository.OpenExisting();
+            if (environmentName is null)
+            {
+                if (allowCreate)
+                {
+                    throw new ConfigurationException("Specify an environment name when using --create.");
+                }
 
-            await repository.SwitchAsync(environmentName, allowCreate, cancellationToken).ConfigureAwait(false);
+                IReadOnlyList<string> environments = await repository.ListEnvironmentsAsync(cancellationToken).ConfigureAwait(false);
+                if (environments.Count == 0)
+                {
+                    throw new ConfigurationException("No environments are available.");
+                }
+                if (!AnsiConsole.Profile.Capabilities.Interactive || Console.IsInputRedirected)
+                {
+                    throw new ConfigurationException("Specify an environment name when input is not interactive.");
+                }
 
+                environmentName = AnsiConsole.Prompt(new SelectionPrompt<string>()
+                    .Title("Select an environment")
+                    .EnableSearch()
+                    .UseConverter(Markup.Escape)
+                    .AddChoices(environments));
+            }
+
+            try
+            {
+                await repository.SwitchAsync(environmentName, allowCreate, cancellationToken).ConfigureAwait(false);
+            }
+            finally
+            {
+                BackupsCommand.ReportCreated(repository.Git);
+            }
             ConsoleReporter.Success($"Switched to environment '{environmentName}'.");
         }));
     }

@@ -24,6 +24,9 @@ attestation. See the [README](../../README.md#installation) for installer option
 
 ## Start or join an environment
 
+Run `EnvManager setup` for guided creation or cloning, remote setup, and optional shell
+integration in an interactive terminal.
+
 Create a new local-only environment:
 
 ```bash
@@ -39,9 +42,12 @@ EnvManager clone https://github.com/you/env-config.git --environment laptop
 If you started locally, add a remote and publish your environment when ready:
 
 ```bash
-git --git-dir="$HOME/.EnvManager/repo" --work-tree="$HOME" remote add origin <repository_url>
+EnvManager remote set <repository_url>
 EnvManager push
 ```
+
+Run `EnvManager status` to see the active environment and synchronization state, or
+`EnvManager environment list` to discover available environments.
 
 ## Manage your environment
 
@@ -67,12 +73,16 @@ EnvManager tools add git
 EnvManager tools list
 EnvManager tools update git
 EnvManager tools remove git
+EnvManager tools apply --preview
+EnvManager tools apply
 ```
 
 Package managers are detected automatically when possible. See
 [supported managers and custom install commands](../../README.md#tools).
 Custom commands are stored in the environment configuration and run with your user
 privileges; EnvManager asks for confirmation before executing them.
+`tools apply` lets you select recorded tools to install; it does not detect whether
+they are already installed.
 
 ### Shells
 
@@ -94,7 +104,7 @@ configuration repository before trusting it.
 
 ### Files
 
-Track files located inside your home directory, such as dotfiles. `files add` resolves
+Track files located inside your home directory, such as dotfiles. File commands resolve
 relative paths from the current working directory; absolute paths inside your home
 directory are also accepted:
 
@@ -102,18 +112,17 @@ directory are also accepted:
 EnvManager files add .gitconfig
 EnvManager files list
 EnvManager files remove .gitconfig
-EnvManager files edit
-EnvManager files copy-to-environment
+EnvManager files edit .gitconfig
+EnvManager files copy-to-environment .gitconfig office --publish
 ```
 
-`files edit` prompts for a tracked file and opens it in the executable configured by the
-`editor` setting (for example, `vim` or `code`). It requires an interactive terminal.
+`files edit` opens a tracked file in the executable configured by the `editor` setting
+(for example, `vim` or `code`); omit the path to select one interactively.
 Removing a file stops tracking it but leaves the local copy in place. File add and remove
 operations stage changes; run `EnvManager push` when you are ready to commit and publish them.
-`files copy-to-environment` prompts for a tracked file and another known environment, then
-commits the file's current contents on that target branch without switching the active
-environment or changing its working tree. Switch to the target and run `EnvManager push`
-to publish the copy. This command requires an interactive terminal.
+`files copy-to-environment` prompts for omitted arguments, then commits the file's current
+contents on the target branch without switching the active environment. `--publish`
+pushes that branch, including any earlier local commits.
 
 ### Settings
 
@@ -135,18 +144,14 @@ EnvManager switch office
 EnvManager switch travel --create
 ```
 
-`push` reviews pending changes before committing and pushing. `pull` replaces the
-current environment with the remote branch and can discard local commits and changes
-to tracked files; review its preview before confirming. `switch --create` creates a
+`push` reviews pending changes before committing and pushing. `pull` previews changes
+and only fast-forwards; conflicting local files or divergent history are not discarded.
+`switch --create` creates a
 new environment if it does not exist.
 
-Changes EnvManager makes to `config.yml` are committed and pushed to `origin`
-automatically. External edits are committed and pushed on the next EnvManager run.
-The console shows the result. Configuration commands can also commit already-staged files
-and shell-directory changes, and the push publishes earlier local commits. If no remote
-is configured, changes remain committed locally; if the push fails, repair the remote
-and run `EnvManager push` to retry. Resolve simultaneous staged and unstaged `config.yml`
-changes before running EnvManager.
+`EnvManager backups list` shows files preserved by clone and switch. Use
+`EnvManager backups restore <backup-id> <file> --to <destination>` to recover a file
+without overwriting an existing destination.
 
 ## Configuration and safety
 

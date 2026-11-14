@@ -17,6 +17,66 @@ namespace EnvManager.Tests;
 public sealed class FilesAddCommandTests
 {
     [Test]
+    public async Task MultipleFilesUseCurrentDirectoryAndWarnForSensitiveNames()
+    {
+        DirectoryInfo root = CreateRoot();
+        try
+        {
+            string home = Directory.CreateDirectory(Path.Combine(root.FullName, "home")).FullName;
+            string nested = Directory.CreateDirectory(Path.Combine(home, "nested")).FullName;
+            await RunAsync(home, "dotnet", typeof(Program).Assembly.Location, "init", "--environment", "main");
+            File.WriteAllText(Path.Combine(nested, ".env"), "example");
+            File.WriteAllText(Path.Combine(nested, "settings"), "settings");
+
+            string output = await RunFromAsync(nested, home, "dotnet", typeof(Program).Assembly.Location, "files", "add", ".env", "settings");
+            await Assert.That(output).Contains("may contain secrets");
+            string gitDir = Path.Combine(home, ".EnvManager", "repo");
+            await Assert.That(await RunAsync(home, "git", $"--git-dir={gitDir}", "show", ":nested/settings")).IsEqualTo("settings");
+            await Assert.That(await RunAsync(home, "git", $"--git-dir={gitDir}", "show", ":nested/.env")).IsEqualTo("example");
+
+            await RunFromAsync(nested, home, "dotnet", typeof(Program).Assembly.Location, "files", "remove", "settings");
+            await Assert.That(File.Exists(Path.Combine(nested, "settings"))).IsTrue();
+            string staged = await RunAsync(home, "git", $"--git-dir={gitDir}", $"--work-tree={home}", "diff", "--cached", "--name-only");
+            await Assert.That(staged).Contains("nested/.env");
+            await Assert.That(staged).DoesNotContain("nested/settings");
+        }
+        finally
+        {
+            Directory.Delete(root.FullName, recursive: true);
+        }
+    }
+
+    [Test]
+    public async Task CopyCanPublishTargetWithoutSwitching()
+    {
+        DirectoryInfo root = CreateRoot();
+        try
+        {
+            string home = Directory.CreateDirectory(Path.Combine(root.FullName, "home")).FullName;
+            string remote = Path.Combine(root.FullName, "remote.git");
+            await RunAsync(root.FullName, "git", "init", "--bare", "--initial-branch=main", remote);
+            await RunAsync(home, "dotnet", typeof(Program).Assembly.Location, "init", "--environment", "main");
+            await RunAsync(home, "dotnet", typeof(Program).Assembly.Location, "remote", "set", remote);
+            string gitDir = Path.Combine(home, ".EnvManager", "repo");
+            File.WriteAllText(Path.Combine(home, "settings"), "initial");
+            await RunAsync(home, "dotnet", typeof(Program).Assembly.Location, "files", "add", "settings");
+            await RunAsync(home, "dotnet", typeof(Program).Assembly.Location, "push", "--yes");
+            await RunAsync(home, "git", $"--git-dir={gitDir}", "branch", "target");
+            File.WriteAllText(Path.Combine(home, "settings"), "updated");
+
+            await RunAsync(home, "dotnet", typeof(Program).Assembly.Location, "files", "copy-to-environment", "settings", "target", "--publish");
+
+            await Assert.That(await RunAsync(root.FullName, "git", $"--git-dir={remote}", "show", "target:settings")).IsEqualTo("updated");
+            await Assert.That(await RunAsync(home, "git", $"--git-dir={gitDir}", "branch", "--show-current")).IsEqualTo("main");
+            await Assert.That(File.ReadAllText(Path.Combine(home, "settings"))).IsEqualTo("updated");
+        }
+        finally
+        {
+            Directory.Delete(root.FullName, recursive: true);
+        }
+    }
+
+    [Test]
     public async Task AddStagesGeneratedVariableExportFiles()
     {
         DirectoryInfo root = CreateRoot();

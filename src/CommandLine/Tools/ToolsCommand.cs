@@ -26,5 +26,6 @@ public sealed class ToolsCommand : Command
         this.Add(new ToolsRemoveCommand());
         this.Add(new ToolsListCommand());
         this.Add(new ToolsUpdateCommand());
+        this.Add(new ToolsApplyCommand());
     }
 }

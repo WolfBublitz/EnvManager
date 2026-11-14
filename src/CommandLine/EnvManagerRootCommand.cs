@@ -31,6 +31,7 @@ public sealed class EnvManagerRootCommand : RootCommand
     {
         this.Add(new CloneCommand());
         this.Add(new InitCommand());
+        this.Add(new SetupCommand());
         this.Add(new VariableCommand());
         this.Add(new SettingsCommand());
         this.Add(new ToolsCommand());
@@ -39,6 +40,10 @@ public sealed class EnvManagerRootCommand : RootCommand
         this.Add(new PushCommand());
         this.Add(new PullCommand());
         this.Add(new SwitchCommand());
+        this.Add(new StatusCommand());
+        this.Add(new RemoteCommand());
+        this.Add(new EnvironmentCommand());
+        this.Add(new BackupsCommand());
         this.Add(new UpdateCommand());
         this.Add(new DowngradeCommand());
     }
