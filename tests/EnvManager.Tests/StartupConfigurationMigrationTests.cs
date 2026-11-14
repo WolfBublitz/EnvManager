@@ -33,6 +33,172 @@ public sealed class StartupConfigurationMigrationTests
         "tools: []\n";
 
     [Test]
+    public async Task ConfigurationCommandAutomaticallyPushesAndReportsSuccess()
+    {
+        DirectoryInfo root = CreateRoot();
+        try
+        {
+            string home = Directory.CreateDirectory(Path.Combine(root.FullName, "home")).FullName;
+            await InitializeHomeAsync(home);
+            string remote = await AddRemoteAsync(root.FullName, home);
+
+            (int exitCode, string output) = await RunCliAsync(home, "variable", "set", "EXAMPLE", "value");
+
+            await Assert.That(exitCode).IsEqualTo(0);
+            await Assert.That(output).Contains("Automatically pushed configuration changes to origin.");
+            await Assert.That(await ReadRemoteConfigurationAsync(root.FullName, remote)).Contains("EXAMPLE: value");
+            string head = await GetHeadAsync(home);
+            await RunGitSuccessAsync(home, "remote", "set-url", "origin", Path.Combine(root.FullName, "missing.git"));
+            (int noChangeExitCode, _) = await RunCliAsync(home, "variable", "set", "EXAMPLE", "value");
+            await Assert.That(noChangeExitCode).IsEqualTo(0);
+            await Assert.That(await GetHeadAsync(home)).IsEqualTo(head);
+        }
+        finally
+        {
+            Directory.Delete(root.FullName, recursive: true);
+        }
+    }
+
+    [Test]
+    public async Task StartupPushesExternalEditWithoutCommittingOtherStagedFiles()
+    {
+        DirectoryInfo root = CreateRoot();
+        try
+        {
+            string home = Directory.CreateDirectory(Path.Combine(root.FullName, "home")).FullName;
+            await InitializeHomeAsync(home);
+            string remote = await AddRemoteAsync(root.FullName, home);
+            await File.WriteAllTextAsync(Path.Combine(home, "other.txt"), "staged\n");
+            await RunGitSuccessAsync(home, "add", "--", "other.txt");
+            string configPath = Path.Combine(home, ".EnvManager", "config.yml");
+            await File.WriteAllTextAsync(configPath, File.ReadAllText(configPath).Replace("variables: {}", "variables:\n  EXTERNAL: edited", StringComparison.Ordinal));
+
+            (int exitCode, string output) = await RunCliAsync(home, "settings", "list");
+
+            await Assert.That(exitCode).IsEqualTo(0);
+            await Assert.That(output).Contains("Automatically pushed configuration changes to origin.");
+            await Assert.That(await ReadRemoteConfigurationAsync(root.FullName, remote)).Contains("EXTERNAL: edited");
+            await Assert.That(await RunGitAsync(home, "diff", "--cached", "--name-only")).IsEqualTo("other.txt");
+            await Assert.That(await GetConfigurationStatusAsync(home)).IsEqualTo(string.Empty);
+            await RunGitSuccessAsync(home, "remote", "set-url", "origin", Path.Combine(root.FullName, "missing.git"));
+            (int noChangeExitCode, _) = await RunCliAsync(home, "settings", "list");
+            await Assert.That(noChangeExitCode).IsEqualTo(0);
+        }
+        finally
+        {
+            Directory.Delete(root.FullName, recursive: true);
+        }
+    }
+
+    [Test]
+    public async Task FailedAutomaticPushKeepsCommitAndReportsRetry()
+    {
+        DirectoryInfo root = CreateRoot();
+        try
+        {
+            string home = Directory.CreateDirectory(Path.Combine(root.FullName, "home")).FullName;
+            await InitializeHomeAsync(home);
+            string remote = await AddRemoteAsync(root.FullName, home);
+            await RunGitSuccessAsync(home, "remote", "set-url", "origin", Path.Combine(root.FullName, "missing.git"));
+            string configPath = Path.Combine(home, ".EnvManager", "config.yml");
+            await File.WriteAllTextAsync(configPath, File.ReadAllText(configPath).Replace("variables: {}", "variables:\n  EXTERNAL: edited", StringComparison.Ordinal));
+
+            (int exitCode, string output) = await RunCliAsync(home, "settings", "list");
+
+            await Assert.That(exitCode).IsNotEqualTo(0);
+            await Assert.That(output).Contains("Run 'EnvManager push'");
+            await Assert.That(output).Contains("retry.");
+            await Assert.That(await GetCommittedConfigurationHashAsync(home)).IsEqualTo(await GetWorkingConfigurationHashAsync(home));
+            await RunGitSuccessAsync(home, "remote", "set-url", "origin", remote);
+            (int retryExitCode, _) = await RunCliAsync(home, "push", "--yes");
+            await Assert.That(retryExitCode).IsEqualTo(0);
+            await Assert.That(await ReadRemoteConfigurationAsync(root.FullName, remote)).Contains("EXTERNAL: edited");
+        }
+        finally
+        {
+            Directory.Delete(root.FullName, recursive: true);
+        }
+    }
+
+    [Test]
+    public async Task StartupPreservesConflictingStagedAndUnstagedConfigurationEdits()
+    {
+        DirectoryInfo root = CreateRoot();
+        try
+        {
+            string home = Directory.CreateDirectory(Path.Combine(root.FullName, "home")).FullName;
+            await InitializeHomeAsync(home);
+            string configPath = Path.Combine(home, ".EnvManager", "config.yml");
+            string original = File.ReadAllText(configPath);
+            string staged = original.Replace("variables: {}", "variables:\n  EXTERNAL: staged", StringComparison.Ordinal);
+            string working = original.Replace("variables: {}", "variables:\n  EXTERNAL: working", StringComparison.Ordinal);
+            await File.WriteAllTextAsync(configPath, staged);
+            await RunGitSuccessAsync(home, "add", "--", ".EnvManager/config.yml");
+            await File.WriteAllTextAsync(configPath, working);
+            string head = await GetHeadAsync(home);
+
+            (int exitCode, string output) = await RunCliAsync(home, "settings", "list");
+
+            await Assert.That(exitCode).IsNotEqualTo(0);
+            await Assert.That(output).Contains("both staged and");
+            await Assert.That(output).Contains("unstaged changes");
+            await Assert.That(await GetHeadAsync(home)).IsEqualTo(head);
+            await Assert.That(await RunGitAsync(home, "show", ":.EnvManager/config.yml")).IsEqualTo(staged.TrimEnd());
+            await Assert.That(File.ReadAllText(configPath)).IsEqualTo(working);
+        }
+        finally
+        {
+            Directory.Delete(root.FullName, recursive: true);
+        }
+    }
+
+    [Test]
+    public async Task ExternalEditWithoutRemoteIsCommittedAndReported()
+    {
+        DirectoryInfo root = CreateRoot();
+        try
+        {
+            string home = Directory.CreateDirectory(Path.Combine(root.FullName, "home")).FullName;
+            await InitializeHomeAsync(home);
+            string configPath = Path.Combine(home, ".EnvManager", "config.yml");
+            await File.WriteAllTextAsync(configPath, File.ReadAllText(configPath).Replace("variables: {}", "variables:\n  EXTERNAL: edited", StringComparison.Ordinal));
+
+            (int exitCode, string output) = await RunCliAsync(home, "settings", "list");
+
+            await Assert.That(exitCode).IsEqualTo(0);
+            await Assert.That(output).Contains("Configuration changes were committed locally.");
+            await Assert.That(await GetCommittedConfigurationHashAsync(home)).IsEqualTo(await GetWorkingConfigurationHashAsync(home));
+        }
+        finally
+        {
+            Directory.Delete(root.FullName, recursive: true);
+        }
+    }
+
+    [Test]
+    public async Task StartupPushesConfigurationMigration()
+    {
+        DirectoryInfo root = CreateRoot();
+        try
+        {
+            string home = Directory.CreateDirectory(Path.Combine(root.FullName, "home")).FullName;
+            await InitializeHomeAsync(home);
+            string remote = await AddRemoteAsync(root.FullName, home);
+            await WriteAndCommitLegacyConfigurationAsync(home, Path.Combine(home, ".EnvManager", "config.yml"));
+
+            (int exitCode, string output) = await RunCliAsync(home, "settings", "list");
+
+            await Assert.That(exitCode).IsEqualTo(0);
+            await Assert.That(output).Contains("Automatically pushed configuration changes to origin.");
+            await Assert.That(await ReadRemoteConfigurationAsync(root.FullName, remote)).Contains(CurrentSchemaReference);
+        }
+        finally
+        {
+            Directory.Delete(root.FullName, recursive: true);
+        }
+    }
+
+    [Test]
     public async Task StartupMigratesLegacySchemaReferenceToBundledSchemaAndCommitsConfiguration()
     {
         DirectoryInfo root = CreateRoot();
@@ -246,6 +412,30 @@ public sealed class StartupConfigurationMigrationTests
         {
             throw new InvalidOperationException($"dotnet {typeof(Program).Assembly.Location} init failed: {output}");
         }
+    }
+
+    private static async Task<string> AddRemoteAsync(string root, string home)
+    {
+        string remote = Path.Combine(root, "remote.git");
+        (int exitCode, string output) = await RunProcessAsync("git", root, home, true, "init", "--bare", "--initial-branch=main", remote);
+        if (exitCode != 0)
+        {
+            throw new InvalidOperationException($"Could not initialize remote: {output}");
+        }
+
+        await RunGitSuccessAsync(home, "remote", "add", "origin", remote);
+        return remote;
+    }
+
+    private static async Task<string> ReadRemoteConfigurationAsync(string root, string remote)
+    {
+        (int exitCode, string output) = await RunProcessAsync("git", root, root, false, $"--git-dir={remote}", "show", "main:.EnvManager/config.yml");
+        if (exitCode != 0)
+        {
+            throw new InvalidOperationException($"Could not read remote configuration: {output}");
+        }
+
+        return output;
     }
 
     private static async Task WriteAndCommitLegacyConfigurationAsync(string home, string configPath)
