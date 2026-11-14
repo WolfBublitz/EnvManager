@@ -77,7 +77,7 @@ public sealed class ShellsAddCommand : Command
                 await repository.Git.CommitAsync($"Add shell '{normalizedName}' integration files.", cancellationToken).ConfigureAwait(false);
             }
 
-            if (addedFiles)
+            if (addedFiles && (alreadyConfigured || !await repository.Git.HasRemoteAsync(cancellationToken).ConfigureAwait(false)))
             {
                 await repository.PushAsync(cancellationToken).ConfigureAwait(false);
             }

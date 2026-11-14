@@ -417,6 +417,16 @@ commits those changes automatically. Configurations using an unsupported format 
 are left unchanged and reported as an error. Files without `formatVersion` are treated
 as version `1.0`.
 
+Configuration changes made by EnvManager are committed and automatically pushed to
+`origin`. External edits to `config.yml` are committed and pushed the next time EnvManager
+runs. The console reports the push; it also publishes earlier local commits on the branch.
+Configuration commands can also commit and publish other already-staged files and changes
+in the supported shell directories.
+Without an `origin` remote, changes remain committed locally. If a push fails, the command
+reports the error and retains the local commit; use `EnvManager push` to retry.
+If `config.yml` has both staged and unstaged changes, resolve them first so that neither
+version is overwritten.
+
 See the [configuration JSON Schema](schemas/config/config.schema.1.0.0.yaml) for field and
 compatibility details. Tagged releases publish versioned schema files as separate assets;
 the current schema is available from the

@@ -140,6 +140,14 @@ current environment with the remote branch and can discard local commits and cha
 to tracked files; review its preview before confirming. `switch --create` creates a
 new environment if it does not exist.
 
+Changes EnvManager makes to `config.yml` are committed and pushed to `origin`
+automatically. External edits are committed and pushed on the next EnvManager run.
+The console shows the result. Configuration commands can also commit already-staged files
+and shell-directory changes, and the push publishes earlier local commits. If no remote
+is configured, changes remain committed locally; if the push fails, repair the remote
+and run `EnvManager push` to retry. Resolve simultaneous staged and unstaged `config.yml`
+changes before running EnvManager.
+
 ## Configuration and safety
 
 Each environment stores its YAML configuration at
