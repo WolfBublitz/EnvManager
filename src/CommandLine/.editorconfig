@@ -1,0 +1,3 @@
+[*.cs]
+# System.CommandLine.Command exposes its children through non-generic IEnumerable.
+dotnet_diagnostic.CA1010.severity = none

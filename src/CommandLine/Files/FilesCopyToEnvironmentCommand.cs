@@ -57,7 +57,7 @@ public sealed class FilesCopyToEnvironmentCommand : Command
                 return;
             }
 
-            IReadOnlyList<string> environments = (await repository.ListEnvironmentsAsync(cancellationToken).ConfigureAwait(false))
+            List<string> environments = (await repository.ListEnvironmentsAsync(cancellationToken).ConfigureAwait(false))
                 .Where(environment => !string.Equals(environment, currentEnvironment, StringComparison.Ordinal))
                 .ToList();
 

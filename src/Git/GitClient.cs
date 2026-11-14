@@ -574,7 +574,7 @@ public sealed class GitClient
     /// <param name="arguments">The arguments to pass to git.</param>
     /// <param name="cancellationToken">A token to cancel the operation.</param>
     public Task<GitCommandResult> RunAsync(IReadOnlyList<string> arguments, CancellationToken cancellationToken = default)
-        => this.RunProcessAsync(this.WorkingDirectory, this.RepositoryArguments.Concat(arguments).ToList(), cancellationToken);
+        => RunProcessAsync(this.WorkingDirectory, this.RepositoryArguments.Concat(arguments).ToList(), cancellationToken);
 
     // ┌────────────────────────────────────────────────────────────────────────────────┐
     // │ private Property                                                                │
@@ -592,7 +592,7 @@ public sealed class GitClient
     // └────────────────────────────────────────────────────────────────────────────────┘
 
     /// <summary>Configures the freshly created/cloned bare repository as described in the Git setup specification.</summary>
-    private Task ConfigureAsync(CancellationToken cancellationToken)
+    private Task<GitCommandResult> ConfigureAsync(CancellationToken cancellationToken)
         => this.RunOrThrowAsync(["config", "--local", "status.showUntrackedFiles", "no"], cancellationToken);
 
     /// <summary>
@@ -719,7 +719,7 @@ public sealed class GitClient
 
     /// <summary>Runs git with the given arguments (without <c>--git-dir</c>/<c>--work-tree</c>) and returns the captured result.</summary>
     private Task<GitCommandResult> RunBareAsync(IReadOnlyList<string> arguments, CancellationToken cancellationToken)
-        => this.RunProcessAsync(this.WorkingDirectory, arguments, cancellationToken);
+        => RunProcessAsync(this.WorkingDirectory, arguments, cancellationToken);
 
     /// <summary>Runs git with the given arguments (without <c>--git-dir</c>/<c>--work-tree</c>) and throws on failure.</summary>
     private async Task RunPlainOrThrowAsync(IReadOnlyList<string> arguments, CancellationToken cancellationToken)
@@ -753,7 +753,7 @@ public sealed class GitClient
         IReadOnlyList<string> arguments,
         string indexFile,
         CancellationToken cancellationToken)
-        => this.RunProcessAsync(
+        => RunProcessAsync(
             this.WorkingDirectory,
             this.RepositoryArguments.Concat(arguments).ToList(),
             cancellationToken,
@@ -779,7 +779,7 @@ public sealed class GitClient
     }
 
     /// <summary>Runs git with the given arguments in a specific directory and returns the captured result.</summary>
-    private async Task<GitCommandResult> RunProcessAsync(
+    private static async Task<GitCommandResult> RunProcessAsync(
         DirectoryInfo directory,
         IReadOnlyList<string> arguments,
         CancellationToken cancellationToken,
