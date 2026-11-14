@@ -4,6 +4,7 @@
 // │ Created: 2026-11-05                                                            │
 // └────────────────────────────────────────────────────────────────────────────────┘
 
+using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
@@ -15,6 +16,8 @@ namespace EnvManager.Tests;
 
 public sealed class ConsoleReporterTests
 {
+    private static readonly int[] ProgressItems = [1, 2, 3];
+
     [Test]
     public async Task ConfirmationAcceptsAffirmativeResponses()
     {
@@ -44,7 +47,7 @@ public sealed class ConsoleReporterTests
 
         await ConsoleReporter.RunProgressAsync(
             "Updating tools",
-            new[] { 1, 2, 3 },
+            ProgressItems,
             item => $"Tool {item}",
             item =>
             {
@@ -65,7 +68,7 @@ public sealed class ConsoleReporterTests
 
         await ConsoleReporter.RunProgressAsync(
             "Updating tools",
-            new int[] { },
+            Array.Empty<int>(),
             item => $"Tool {item}",
             _ =>
             {

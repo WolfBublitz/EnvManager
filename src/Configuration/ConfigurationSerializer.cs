@@ -8,7 +8,6 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Diagnostics.CodeAnalysis;
 using System.Text.RegularExpressions;
 
 using EnvManager.Exceptions;
@@ -31,11 +30,11 @@ public sealed class ConfigurationSerializer
     // │ private Field                                                                   │
     // └────────────────────────────────────────────────────────────────────────────────┘
 
-    private readonly ISerializer serializer = new SerializerBuilder()
+    private readonly ISerializer serializer = new StaticSerializerBuilder(new YamlConfigurationContext())
         .WithNamingConvention(CamelCaseNamingConvention.Instance)
         .Build();
 
-    private readonly IDeserializer deserializer = new DeserializerBuilder()
+    private readonly IDeserializer deserializer = new StaticDeserializerBuilder(new YamlConfigurationContext())
         .WithNamingConvention(CamelCaseNamingConvention.Instance)
         .IgnoreUnmatchedProperties()
         .Build();
@@ -50,12 +49,6 @@ public sealed class ConfigurationSerializer
     /// </summary>
     /// <param name="file">The <c>.EnvManager/config.yml</c> file to read.</param>
     /// <param name="environmentName">The environment name to use when the file is missing.</param>
-    [DynamicDependency(
-        DynamicallyAccessedMemberTypes.PublicParameterlessConstructor | DynamicallyAccessedMemberTypes.PublicProperties,
-        typeof(EnvironmentConfiguration))]
-    [DynamicDependency(
-        DynamicallyAccessedMemberTypes.PublicParameterlessConstructor | DynamicallyAccessedMemberTypes.PublicProperties,
-        typeof(ToolDefinition))]
     public EnvironmentConfiguration Load(FileInfo file, string environmentName)
     {
         if (!file.Exists)
