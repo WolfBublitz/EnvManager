@@ -159,6 +159,12 @@ public sealed class EnvironmentRepository
             return;
         }
 
+        if (await this.Git.HasStagedChangesForFileAsync(EnvManagerPaths.EnvironmentFileRelativePath, cancellationToken).ConfigureAwait(false)
+            && await this.Git.HasUnstagedChangesForFileAsync(EnvManagerPaths.EnvironmentFileRelativePath, cancellationToken).ConfigureAwait(false))
+        {
+            throw new ConfigurationException("config.yml has both staged and unstaged changes. Resolve them before EnvManager synchronizes the configuration.");
+        }
+
         string environmentName = await this.GetCurrentEnvironmentNameAsync(cancellationToken).ConfigureAwait(false);
         EnvironmentConfiguration configuration = this.serializer.Load(configurationFile, environmentName);
 
@@ -171,6 +177,7 @@ public sealed class EnvironmentRepository
                     $"Migrate configuration to format version {EnvironmentConfiguration.CurrentFormatVersion}.",
                     EnvManagerPaths.EnvironmentFileRelativePath,
                     cancellationToken).ConfigureAwait(false);
+                await this.PushConfigurationAsync(cancellationToken).ConfigureAwait(false);
             }
 
             ConsoleReporter.Info($"Migrated config.yml to format version {EnvironmentConfiguration.CurrentFormatVersion}.");
@@ -220,7 +227,58 @@ public sealed class EnvironmentRepository
         await this.StageShellDirectoryChangesAsync(cancellationToken).ConfigureAwait(false);
 
         await this.Git.AddAsync(EnvManagerPaths.EnvironmentFileRelativePath, cancellationToken).ConfigureAwait(false);
+        bool configurationChanged = await this.Git.HasStagedChangesForFileAsync(EnvManagerPaths.EnvironmentFileRelativePath, cancellationToken).ConfigureAwait(false);
         await this.Git.CommitAsync(commitMessage, cancellationToken).ConfigureAwait(false);
+
+        if (configurationChanged)
+        {
+            await this.PushConfigurationAsync(cancellationToken).ConfigureAwait(false);
+        }
+    }
+
+    /// <summary>Commits and publishes external configuration edits detected at startup.</summary>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    public async Task SynchronizeConfigurationAsync(CancellationToken cancellationToken = default)
+    {
+        if (!EnvManagerPaths.EnvironmentFile.Exists)
+        {
+            return;
+        }
+
+        IReadOnlyList<(string Status, string Path)> changes = await this.Git.ListPendingChangesAsync(cancellationToken).ConfigureAwait(false);
+        if (!changes.Any(change => string.Equals(change.Path, EnvManagerPaths.EnvironmentFileRelativePath, StringComparison.Ordinal)))
+        {
+            return;
+        }
+
+        await this.Git.AddAsync(EnvManagerPaths.EnvironmentFileRelativePath, cancellationToken).ConfigureAwait(false);
+        if (await this.Git.HasStagedChangesForFileAsync(EnvManagerPaths.EnvironmentFileRelativePath, cancellationToken).ConfigureAwait(false))
+        {
+            await this.Git.CommitFileAsync("Update configuration.", EnvManagerPaths.EnvironmentFileRelativePath, cancellationToken).ConfigureAwait(false);
+            await this.PushConfigurationAsync(cancellationToken).ConfigureAwait(false);
+        }
+    }
+
+    private async Task PushConfigurationAsync(CancellationToken cancellationToken)
+    {
+        if (!await this.Git.HasRemoteAsync(cancellationToken).ConfigureAwait(false))
+        {
+            ConsoleReporter.Warning("Configuration changes were committed locally. No 'origin' remote is configured; run 'EnvManager push' after configuring one.");
+            return;
+        }
+
+        ConsoleReporter.Info("Automatically pushing configuration changes to origin.");
+        try
+        {
+            await this.Git.PushAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch (GitCommandException)
+        {
+            ConsoleReporter.Warning("Configuration changes remain committed locally. Run 'EnvManager push' to retry.");
+            throw;
+        }
+
+        ConsoleReporter.Success("Automatically pushed configuration changes to origin.");
     }
 
     /// <summary>Switches to a different environment, optionally creating it if it does not yet exist.</summary>

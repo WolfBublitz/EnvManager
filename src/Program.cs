@@ -35,7 +35,9 @@ public static class Program
         {
             int migrationExitCode = await CommandExecutor.RunAsync(async () =>
             {
-                await EnvironmentRepository.OpenExisting().MigrateConfigurationAsync().ConfigureAwait(false);
+                EnvironmentRepository repository = EnvironmentRepository.OpenExisting();
+                await repository.MigrateConfigurationAsync().ConfigureAwait(false);
+                await repository.SynchronizeConfigurationAsync().ConfigureAwait(false);
             }).ConfigureAwait(false);
 
             if (migrationExitCode != 0)

@@ -431,6 +431,14 @@ Syntax:
 
 #### Push Command
 
+Configuration changes made by EnvManager are committed and pushed to `origin`
+automatically. External edits to `config.yml` are committed and pushed on the next
+run. The result is displayed; configuration commands can commit already-staged files
+and shell-directory changes, and pushes also publish earlier local commits. Without a
+remote, changes remain committed locally. A failed push is reported and leaves the
+commit available for a later `push`. Simultaneous staged and unstaged configuration
+changes must be resolved before synchronization.
+
 ```bash
 Description:
   Lists all pending changes to tracked files, asks for confirmation, commits them with
