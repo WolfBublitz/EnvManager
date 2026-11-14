@@ -11,7 +11,106 @@ namespace EnvManager.Tests;
 public sealed class ShellsAddCommandTests
 {
     [Test]
-    public async Task AddPushesMissingProfilesAndRepairsAnAlreadyConfiguredShell()
+    public async Task SwitchBackupCanBeListedAndRestoredWithoutOverwriting()
+    {
+        DirectoryInfo root = CreateRoot();
+        try
+        {
+            string home = Directory.CreateDirectory(Path.Combine(root.FullName, "home")).FullName;
+            await RunSuccessAsync(home, "dotnet", typeof(Program).Assembly.Location, "init", "--environment", "main");
+            string gitDir = Path.Combine(home, ".EnvManager", "repo");
+            File.WriteAllText(Path.Combine(home, "settings"), "original");
+            await RunSuccessAsync(home, "dotnet", typeof(Program).Assembly.Location, "files", "add", "settings");
+            await RunSuccessAsync(home, "dotnet", typeof(Program).Assembly.Location, "variable", "set", "EXAMPLE", "value");
+            await RunSuccessAsync(home, "git", $"--git-dir={gitDir}", "branch", "other");
+            File.WriteAllText(Path.Combine(home, "settings"), "local change");
+
+            string switched = await RunSuccessAsync(home, "dotnet", typeof(Program).Assembly.Location, "switch", "other");
+            string backupsRoot = Path.Combine(gitDir, "overwritten-files");
+            string backupId = Path.GetFileName(Directory.GetDirectories(backupsRoot)[0]);
+            await Assert.That(switched).Contains(backupId);
+            string listing = await RunSuccessAsync(home, "dotnet", typeof(Program).Assembly.Location, "backups", "list");
+            await Assert.That(listing).Contains("settings");
+
+            (int invalidExitCode, _) = await RunAsync(home, "dotnet", typeof(Program).Assembly.Location, "backups", "restore", backupId, "../outside", "--to", "escaped");
+            await Assert.That(invalidExitCode).IsNotEqualTo(0);
+            await Assert.That(File.Exists(Path.Combine(home, "escaped"))).IsFalse();
+            await Assert.That(File.ReadAllText(Path.Combine(home, "settings"))).IsEqualTo("original");
+            File.WriteAllText(Path.Combine(home, "settings"), "current");
+            (int exitCode, _) = await RunAsync(home, "dotnet", typeof(Program).Assembly.Location, "backups", "restore", backupId, "settings");
+            await Assert.That(exitCode).IsNotEqualTo(0);
+            await Assert.That(File.ReadAllText(Path.Combine(home, "settings"))).IsEqualTo("current");
+            await RunSuccessAsync(home, "dotnet", typeof(Program).Assembly.Location, "backups", "restore", backupId, "settings", "--to", "recovered");
+            await Assert.That(File.ReadAllText(Path.Combine(home, "recovered"))).IsEqualTo("local change");
+            await Assert.That(File.ReadAllText(Path.Combine(backupsRoot, backupId, "settings"))).IsEqualTo("local change");
+        }
+        finally
+        {
+            Directory.Delete(root.FullName, recursive: true);
+        }
+    }
+
+    [Test]
+    public async Task ToolApplyPreviewDoesNotExecuteRecordedCommand()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        DirectoryInfo root = CreateRoot();
+        try
+        {
+            string home = Directory.CreateDirectory(Path.Combine(root.FullName, "home")).FullName;
+            await RunSuccessAsync(home, "dotnet", typeof(Program).Assembly.Location, "init", "--environment", "main");
+            string marker = Path.Combine(home, "marker");
+            await RunSuccessAsync(home, "dotnet", typeof(Program).Assembly.Location, "tools", "add", "custom", "--install-command", "echo run >> marker", "--yes");
+
+            string preview = await RunSuccessAsync(home, "dotnet", typeof(Program).Assembly.Location, "tools", "apply", "--preview");
+            await Assert.That(preview).Contains("echo run >> marker");
+            await Assert.That(File.ReadAllLines(marker).Length).IsEqualTo(1);
+            (int exitCode, string output) = await RunAsync(home, "dotnet", typeof(Program).Assembly.Location, "tools", "apply");
+            await Assert.That(exitCode).IsNotEqualTo(0);
+            await Assert.That(output).Contains("interactive terminal");
+            await Assert.That(File.ReadAllLines(marker).Length).IsEqualTo(1);
+        }
+        finally
+        {
+            Directory.Delete(root.FullName, recursive: true);
+        }
+    }
+
+    [Test]
+    public async Task RemoteAndStatusShowLocalAndPublishedState()
+    {
+        DirectoryInfo root = CreateRoot();
+        try
+        {
+            string home = Directory.CreateDirectory(Path.Combine(root.FullName, "home")).FullName;
+            string remote = Path.Combine(root.FullName, "remote.git");
+            await RunSuccessAsync(root.FullName, "git", "init", "--bare", "--initial-branch=main", remote);
+            await RunSuccessAsync(home, "dotnet", typeof(Program).Assembly.Location, "init", "--environment", "main");
+
+            string localStatus = await RunSuccessAsync(home, "dotnet", typeof(Program).Assembly.Location, "status");
+            await Assert.That(localStatus).Contains("Remote: not configured");
+            await RunSuccessAsync(home, "dotnet", typeof(Program).Assembly.Location, "remote", "set", remote);
+            string unpublished = await RunSuccessAsync(home, "dotnet", typeof(Program).Assembly.Location, "status");
+            await Assert.That(unpublished).Contains("has not been published");
+
+            await RunSuccessAsync(home, "dotnet", typeof(Program).Assembly.Location, "push", "--yes");
+            string published = await RunSuccessAsync(home, "dotnet", typeof(Program).Assembly.Location, "status");
+            await Assert.That(published).Contains("0 local commit(s) ahead, 0 remote commit(s) behind");
+            string environments = await RunSuccessAsync(home, "dotnet", typeof(Program).Assembly.Location, "environment", "list");
+            await Assert.That(environments).Contains("main (current)");
+        }
+        finally
+        {
+            Directory.Delete(root.FullName, recursive: true);
+        }
+    }
+
+    [Test]
+    public async Task AddSavesMissingProfilesLocallyAndRepairsAnAlreadyConfiguredShell()
     {
         if (OperatingSystem.IsWindows())
         {
@@ -30,6 +129,9 @@ public sealed class ShellsAddCommandTests
             File.WriteAllText(Path.Combine(home, ".bashrc"), "original");
 
             await RunSuccessAsync(home, "dotnet", typeof(Program).Assembly.Location, "shells", "add", "bash", "--yes");
+            string remoteBranches = await RunSuccessAsync(root.FullName, "git", $"--git-dir={remote}", "branch", "--list");
+            await Assert.That(remoteBranches).IsEqualTo(string.Empty);
+            await RunSuccessAsync(home, "dotnet", typeof(Program).Assembly.Location, "push", "--yes");
 
             string bashrc = await RunSuccessAsync(root.FullName, "git", $"--git-dir={remote}", "show", "main:.bashrc");
             string bashProfile = await RunSuccessAsync(root.FullName, "git", $"--git-dir={remote}", "show", "main:.bash_profile");
@@ -59,6 +161,7 @@ public sealed class ShellsAddCommandTests
             await RunSuccessAsync(home, "git", $"--git-dir={gitDirectory}", $"--work-tree={home}", "commit", "-m", "Remove profile from tracking");
             await RunSuccessAsync(home, "git", $"--git-dir={gitDirectory}", $"--work-tree={home}", "push", "origin", "main");
             await RunSuccessAsync(home, "dotnet", typeof(Program).Assembly.Location, "shells", "add", "bash", "--yes");
+            await RunSuccessAsync(home, "dotnet", typeof(Program).Assembly.Location, "push", "--yes");
             await Assert.That(await RunSuccessAsync(root.FullName, "git", $"--git-dir={remote}", "show", "main:.bash_profile")).IsEqualTo(bashrc);
         }
         finally
@@ -68,7 +171,7 @@ public sealed class ShellsAddCommandTests
     }
 
     [Test]
-    public async Task AddReportsPushFailureAndKeepsCommitForRetry()
+    public async Task AddSucceedsWithoutRemoteAndCanBePublishedLater()
     {
         if (OperatingSystem.IsWindows())
         {
@@ -81,8 +184,8 @@ public sealed class ShellsAddCommandTests
             string home = Directory.CreateDirectory(Path.Combine(root.FullName, "home")).FullName;
             await RunSuccessAsync(home, "dotnet", typeof(Program).Assembly.Location, "init", "--environment", "main");
             (int exitCode, string output) = await RunAsync(home, "dotnet", typeof(Program).Assembly.Location, "shells", "add", "bash", "--yes");
-            await Assert.That(exitCode).IsNotEqualTo(0);
-            await Assert.That(output).Contains("No 'origin' remote is configured");
+            await Assert.That(exitCode).IsEqualTo(0);
+            await Assert.That(output).Contains("saved locally");
 
             string gitDirectory = Path.Combine(home, ".EnvManager", "repo");
             await Assert.That(await RunSuccessAsync(home, "git", $"--git-dir={gitDirectory}", "show", "HEAD:.bashrc")).Contains("$HOME/.EnvManager/bash/");

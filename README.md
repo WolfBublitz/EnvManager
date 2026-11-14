@@ -171,6 +171,10 @@ runtime identifier (for example, `linux-x64` or `linux-arm64`).
 
 ## Getting Started
 
+Run `EnvManager setup` in an interactive terminal for guided creation or cloning,
+remote setup, and optional shell integration. Repository scripts must be reviewed and
+trusted before enabling a shell.
+
 EnvManager stores its configuration history in a **bare** git repository at
 `$HOME/.EnvManager/repo` (override with the `ENVMANAGER_HOME` environment variable,
 which is treated as `$HOME`, primarily useful for testing). The work tree for this
@@ -190,9 +194,8 @@ EnvManager init --environment laptop
 ```
 
 Creates a brand-new, local-only bare repository with a single environment branch.
-Attach a remote later (e.g.
-`git --git-dir=$HOME/.EnvManager/repo --work-tree=$HOME remote add origin <url>`) and
-run `EnvManager push` once you're ready to share it.
+Attach a remote later with `EnvManager remote set <url>` and run `EnvManager push`
+once you're ready to share it.
 
 ### Cloning an existing configuration repository
 
@@ -211,6 +214,7 @@ EnvManager [command]
 Commands:
   clone <repository_url>     Clones the environment configuration repository.
   init                        Initializes a new, local-only environment configuration repository.
+  setup                       Guides you through environment and shell setup.
   variable                    Manage environment variables and configurations.
   settings                    Manage key-value settings stored in config.yml.
   tools                       Manage tools and configurations.
@@ -219,6 +223,9 @@ Commands:
   push                        Pushes the current environment configuration to the remote repository.
   pull                        Pulls the latest environment configuration from the remote repository.
   switch <environment_name>   Switches to a different environment configuration.
+  environment list           Lists available environments.
+  remote set <url>           Adds or changes the synchronization remote.
+  status                     Shows the current environment and synchronization state.
   update [--version <version>] Checks for and installs a newer EnvManager version.
   downgrade [--version <version>] Selects and installs an earlier EnvManager version.
 ```
@@ -265,6 +272,7 @@ EnvManager tools add <tool_name> --install-command <command> [--update-command <
 EnvManager tools remove <tool_name>
 EnvManager tools update [tool_name]   # Updates one tool, or every tracked tool when omitted
 EnvManager tools list
+EnvManager tools apply [--preview]   # Review and selectively install recorded tools
 ```
 
 The package manager is auto-detected from your operating system and installed tooling
@@ -297,6 +305,11 @@ repository and its shell scripts as executable code: review it before trusting i
 put secrets in commands or variable values; configuration is stored in plaintext and can
 be committed or pushed.
 
+On another machine, `tools apply --preview` lists recorded installation actions without
+running them. `tools apply` lets you select tools and confirms each installation; custom
+commands are displayed and require separate trust. Installed state is not detected, so
+review the list before choosing tools.
+
 ### Shells
 
 ```bash
@@ -315,9 +328,8 @@ adds `$HOME/.local/bin` to `PATH`. The shell profiles and addon files are tracke
 the environment configuration. Removing the shell restores backed-up shell profiles or
 removes unmodified loaders, removes the EnvManager-created addon file, and leaves the
 `00_Profile` addon file in the shell directory. Newly tracked files are committed
-and pushed to `origin` by `shells add`; this also pushes any earlier local commits.
-If no remote is configured or the push fails, the local commit remains; configure or
-repair the remote and run `EnvManager push` to retry. Already tracked shell profile and addon files
+locally by `shells add`; run `EnvManager push` when you want to publish them.
+Already tracked shell profile and addon files
 are not staged again, but any changes already staged are included in the commit.
 Additional shell-specific addon files belong in `$HOME/.EnvManager/<shell>/` and are staged automatically with configuration
 changes. Other files under `$HOME/.EnvManager/` can be versioned with `files add`; files under
@@ -335,24 +347,24 @@ after you have reviewed the repository.
 ### Files
 
 ```bash
-EnvManager files add <file_name>      # Track a file relative to the current directory
-EnvManager files remove [file_name]   # Stop tracking a file (left in place on disk)
-EnvManager files edit                 # Choose and open a tracked file in the configured editor
-EnvManager files list                 # List all files tracked for the current environment
-EnvManager files copy-to-environment  # Copy a tracked file to another environment branch
+EnvManager files add <file_name>...                   # Track one or more files
+EnvManager files remove [file_name]                   # Stop tracking a file (left in place)
+EnvManager files edit [file_name]                     # Open a tracked file in the configured editor
+EnvManager files list                                 # List tracked files
+EnvManager files copy-to-environment [file] [environment] [--publish]
 ```
 
-For `files add`, `file_name` is resolved relative to the current working directory (or
-as an absolute path inside your home directory); paths outside the home directory are
-rejected.
+For `files add`, `remove`, `edit`, and explicit `copy-to-environment` paths, `file_name`
+is resolved relative to the current working directory (or as an absolute path inside
+your home directory); paths outside the home directory are rejected. Adding common
+credential filenames produces a warning; review all files for secrets before publishing.
 When `file_name` is omitted, EnvManager prompts you to select a tracked file and asks
 for confirmation before staging its removal. This interactive mode requires a terminal.
-`files edit` also requires a terminal and uses the `editor` setting as the editor
-executable (for example, `vim` or `code`).
-`files copy-to-environment` requires a terminal, prompts for a tracked file and another
-known environment, and commits the file's current contents on that target branch without
-switching the active environment or changing its working tree. Switch to the target
-environment and run `EnvManager push` to publish the copy.
+`files edit` uses the `editor` setting as the editor executable (for example, `vim` or
+`code`); omit the path to select a tracked file in a terminal.
+`files copy-to-environment` prompts for omitted arguments in a terminal and commits the
+file's current contents on the target branch without switching environments. Add
+`--publish` to push the target branch directly, including any earlier local commits.
 
 `files add` and `files remove` stage their changes without committing or requiring a
 remote; removal leaves the local file in place. Run `EnvManager push` when you are
@@ -364,24 +376,18 @@ can also include already staged files in their commits.
 
 ```bash
 EnvManager push    # List pending changes, confirm, commit (auto-generated message) and push (-y skips the prompt)
-EnvManager pull    # Preview and confirm the destructive pull (-y skips the prompt)
-EnvManager switch <environment_name> [--create]   # Switch to a different environment
+EnvManager pull    # Preview and fast-forward safely (-y skips the prompt)
+EnvManager switch [environment_name] [--create]   # Switch or select an environment
 ```
 
 Pull fetches and previews incoming changes, local changes and local-only commits before
-asking for confirmation. It replaces the local branch and tracked work tree without a
-backup; files or directories obstructing incoming paths may also be removed. Use
-`EnvManager pull --yes` to skip confirmation.
-
-
-**Pull is destructive:** it replaces the current environment with the `origin` branch,
-discarding local-only commits and staged or unstaged changes to tracked files. Untracked
-files or directories that obstruct remote tracked paths can also be overwritten or
-removed. Unrelated untracked files are left alone, and pull creates no backup. A failed
-fetch leaves the local branch, index, and work tree unchanged.
+asking for confirmation. It only fast-forwards and refuses divergent histories or
+conflicting local files. Use `EnvManager pull --yes` to skip confirmation; this does not
+bypass those safeguards. A failed fetch leaves the local branch, index, and work tree
+unchanged.
 
 Use `--create` with `switch` to create a new, empty environment when it doesn't exist yet
-locally or on the remote.
+locally or on the remote. Omit the name to select an existing environment interactively.
 
 Before checking out an environment, EnvManager moves every existing file tracked by either
 the current or destination environment into a unique backup directory under
@@ -390,6 +396,14 @@ local files; the destination environment's version is then checked out normally.
 cloning, files from the remote's default branch are also backed up if present, since Git
 may otherwise refuse to switch to the requested environment. Git failures report the failed
 command, exit code, standard output, and standard error.
+
+Run `EnvManager backups list` to see these backups. Recover an individual file with
+`EnvManager backups restore <backup-id> <file> --to <destination>`; the destination must
+be inside your home directory and must not already exist. Omit `--to` to restore to the
+original location when it is free. Backups are retained after recovery.
+These backups contain preserved working-tree files, not a complete snapshot of the Git
+index or branch history. Restore the internally managed `config.yml` to an alternate
+path for inspection.
 
 ## Configuration Storage
 

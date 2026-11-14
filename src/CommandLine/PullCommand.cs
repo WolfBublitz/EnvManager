@@ -15,7 +15,7 @@ namespace EnvManager.CommandLine;
 
 /// <summary>
 /// The <c>pull</c> command pulls the latest committed changes for the current
-/// environment from the remote repository, replacing local changes.
+/// environment from the remote repository with a fast-forward-only update.
 /// </summary>
 public sealed class PullCommand : Command
 {
@@ -25,7 +25,7 @@ public sealed class PullCommand : Command
 
     /// <summary>Initializes a new instance of the <see cref="PullCommand"/> class.</summary>
     public PullCommand()
-        : base("pull", "Discards local changes and replaces the current environment with the remote version.")
+        : base("pull", "Fetches and fast-forwards the current environment without discarding local changes.")
     {
         Option<bool> yesOption = new("--yes", "-y")
         {
@@ -50,20 +50,20 @@ public sealed class PullCommand : Command
 
             ConsoleReporter.Info($"Incoming changes (local commit to remote {target}):");
             ConsoleReporter.Info(string.IsNullOrWhiteSpace(incoming) ? "  None." : incoming);
-            ConsoleReporter.Info("Uncommitted tracked changes to discard (index and work tree):");
+            ConsoleReporter.Info("Uncommitted tracked changes (index and work tree):");
             ConsoleReporter.Info(string.IsNullOrWhiteSpace(localChanges) ? "  None." : localChanges);
-            ConsoleReporter.Info("Local-only commits to discard:");
+            ConsoleReporter.Info("Local-only commits:");
             ConsoleReporter.Info(string.IsNullOrWhiteSpace(localCommits) ? "  None." : localCommits);
             if (obstructions.Count > 0)
             {
-                ConsoleReporter.Warning("Incoming paths may overwrite or remove existing files or directories:");
+                ConsoleReporter.Warning("Incoming paths may conflict with existing files or directories:");
                 foreach (string path in obstructions)
                 {
                     ConsoleReporter.Warning($"  {path}");
                 }
             }
 
-            ConsoleReporter.Warning("Pull replaces the local branch, index and work tree without a backup.");
+            ConsoleReporter.Info("Pull only fast-forwards; Git will refuse conflicting changes and divergent histories.");
             if (!parseResult.GetValue(yesOption) && !await ConsoleReporter.ConfirmAsync(
                 "Apply this pull?",
                 defaultValue: false,
@@ -77,7 +77,7 @@ public sealed class PullCommand : Command
                 $"Applying changes to environment '{environmentName}'",
                 async () =>
                 {
-                    await repository.Git.ApplyPullAsync(target, cancellationToken).ConfigureAwait(false);
+                    await repository.Git.FastForwardPullAsync(target, cancellationToken).ConfigureAwait(false);
                     await repository.RefreshShellEnvironmentAsync(cancellationToken).ConfigureAwait(false);
                 }).ConfigureAwait(false);
 

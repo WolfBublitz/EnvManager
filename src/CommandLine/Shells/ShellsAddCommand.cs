@@ -77,11 +77,6 @@ public sealed class ShellsAddCommand : Command
                 await repository.Git.CommitAsync($"Add shell '{normalizedName}' integration files.", cancellationToken).ConfigureAwait(false);
             }
 
-            if (addedFiles)
-            {
-                await repository.PushAsync(cancellationToken).ConfigureAwait(false);
-            }
-
             if (alreadyConfigured)
             {
                 ConsoleReporter.Info($"Shell '{normalizedName}' is already configured.");
@@ -89,6 +84,11 @@ public sealed class ShellsAddCommand : Command
             else
             {
                 ConsoleReporter.Success($"Enabled shell '{normalizedName}' and installed its shell profile loader and addon files.");
+            }
+
+            if (addedFiles || !alreadyConfigured)
+            {
+                ConsoleReporter.Info("Shell integration was saved locally. Run 'EnvManager push' when you are ready to publish it.");
             }
         }));
     }

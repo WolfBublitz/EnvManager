@@ -7,6 +7,7 @@
 using System;
 using System.Collections.Generic;
 using System.CommandLine;
+using System.IO;
 using System.Linq;
 
 using EnvManager.Configuration;
@@ -30,7 +31,21 @@ public sealed class FilesCopyToEnvironmentCommand : Command
     public FilesCopyToEnvironmentCommand()
         : base("copy-to-environment", "Copies a tracked file to another environment.")
     {
-        this.SetAction((_, cancellationToken) => CommandExecutor.RunAsync(async () =>
+        Argument<string?> fileArgument = new("file")
+        {
+            Description = "Tracked file relative to the current directory; omit to select interactively.",
+            Arity = ArgumentArity.ZeroOrOne,
+        };
+        Argument<string?> environmentArgument = new("environment")
+        {
+            Description = "Target environment; omit to select interactively.",
+            Arity = ArgumentArity.ZeroOrOne,
+        };
+        Option<bool> publishOption = new("--publish") { Description = "Publish the target branch after copying." };
+        this.Add(fileArgument);
+        this.Add(environmentArgument);
+        this.Add(publishOption);
+        this.SetAction((parseResult, cancellationToken) => CommandExecutor.RunAsync(async () =>
         {
             EnvironmentRepository repository = EnvironmentRepository.OpenExisting();
             string currentEnvironment = await repository.GetCurrentEnvironmentNameAsync(cancellationToken).ConfigureAwait(false);
@@ -53,20 +68,25 @@ public sealed class FilesCopyToEnvironmentCommand : Command
             }
 
             bool interactive = AnsiConsole.Profile.Capabilities.Interactive && !Console.IsInputRedirected;
-            string fileName = SelectFile(
+            string? requestedFile = parseResult.GetValue(fileArgument);
+            string fileName = requestedFile is not null ? Path.GetFullPath(requestedFile) : SelectFile(
                 files,
                 interactive,
                 choices => AnsiConsole.Prompt(
                     new SelectionPrompt<string>()
                         .Title("Select a file to copy")
+                        .EnableSearch()
+                        .UseConverter(Markup.Escape)
                         .PageSize(10)
                         .AddChoices(choices)));
-            string targetEnvironment = SelectEnvironment(
+            string targetEnvironment = parseResult.GetValue(environmentArgument) ?? SelectEnvironment(
                 environments,
                 interactive,
                 choices => AnsiConsole.Prompt(
                     new SelectionPrompt<string>()
                         .Title("Select a target environment")
+                        .EnableSearch()
+                        .UseConverter(Markup.Escape)
                         .PageSize(10)
                         .AddChoices(choices)));
 
@@ -74,13 +94,22 @@ public sealed class FilesCopyToEnvironmentCommand : Command
 
             if (copied)
             {
-                ConsoleReporter.Success(
-                    $"Copied file '{fileName}' from environment '{currentEnvironment}' to '{targetEnvironment}'. " +
-                    $"The copy is committed on the target branch; switch to it and run 'EnvManager push' to publish it.");
+                ConsoleReporter.Success($"Copied file '{fileName}' from environment '{currentEnvironment}' to '{targetEnvironment}'. The copy is committed locally.");
             }
             else
             {
                 ConsoleReporter.Info($"File '{fileName}' already matches in environment '{targetEnvironment}'.");
+            }
+
+            if (parseResult.GetValue(publishOption))
+            {
+                ConsoleReporter.Info($"Publishing environment '{targetEnvironment}', including any earlier local commits. If this fails, its local commits remain available.");
+                await repository.Git.PushBranchAsync(targetEnvironment, cancellationToken).ConfigureAwait(false);
+                ConsoleReporter.Success($"Published environment '{targetEnvironment}'.");
+            }
+            else if (copied)
+            {
+                ConsoleReporter.Info($"Run 'EnvManager files copy-to-environment <file> {targetEnvironment} --publish' or switch to '{targetEnvironment}' and push to publish it.");
             }
         }));
     }

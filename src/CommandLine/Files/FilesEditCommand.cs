@@ -9,6 +9,7 @@ using System.Collections.Generic;
 using System.CommandLine;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -33,7 +34,13 @@ public sealed class FilesEditCommand : Command
     public FilesEditCommand()
         : base("edit", "Selects a tracked file and opens it in the configured editor.")
     {
-        this.SetAction((_, cancellationToken) => CommandExecutor.RunAsync(async () =>
+        Argument<string?> fileArgument = new("file")
+        {
+            Description = "A tracked file, relative to the current directory. Omit to select interactively.",
+            Arity = ArgumentArity.ZeroOrOne,
+        };
+        this.Add(fileArgument);
+        this.SetAction((parseResult, cancellationToken) => CommandExecutor.RunAsync(async () =>
         {
             EnvironmentRepository repository = EnvironmentRepository.OpenExisting();
             IReadOnlyList<string> files = await repository.ListFilesAsync(cancellationToken).ConfigureAwait(false);
@@ -50,15 +57,30 @@ public sealed class FilesEditCommand : Command
                 throw new ConfigurationException("No editor is configured. Run 'EnvManager settings edit' to set the 'editor' setting.");
             }
 
-            bool interactive = AnsiConsole.Profile.Capabilities.Interactive && !Console.IsInputRedirected;
-            string fileName = SelectFile(
-                files,
-                interactive,
-                choices => AnsiConsole.Prompt(
-                    new SelectionPrompt<string>()
-                        .Title("Select a file to edit")
-                        .PageSize(10)
-                        .AddChoices(choices)));
+            string? requestedFile = parseResult.GetValue(fileArgument);
+            string fileName;
+            if (requestedFile is null)
+            {
+                bool interactive = AnsiConsole.Profile.Capabilities.Interactive && !Console.IsInputRedirected;
+                fileName = SelectFile(
+                    files,
+                    interactive,
+                    choices => AnsiConsole.Prompt(
+                        new SelectionPrompt<string>()
+                            .Title("Select a file to edit")
+                            .EnableSearch()
+                            .UseConverter(Markup.Escape)
+                            .PageSize(10)
+                            .AddChoices(choices)));
+            }
+            else
+            {
+                fileName = EnvironmentRepository.ResolveRelativePath(requestedFile, Environment.CurrentDirectory);
+                if (!files.Contains(fileName, StringComparer.Ordinal))
+                {
+                    throw new ConfigurationException($"File '{fileName}' is not tracked in the current environment.");
+                }
+            }
 
             string filePath = Path.GetFullPath(Path.Combine(
                 EnvManagerPaths.HomeDirectory.FullName,

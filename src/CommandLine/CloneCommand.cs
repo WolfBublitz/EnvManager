@@ -50,10 +50,12 @@ public sealed class CloneCommand : Command
                 throw new ConfigurationException($"'{repositoryUrlText}' is not a valid repository URL.");
             }
 
+            EnvironmentRepository? repository = null;
             await ConsoleReporter.RunWithStatusAsync(
                 $"Cloning '{repositoryUrl}'",
-                () => EnvironmentRepository.CloneAsync(repositoryUrl, environmentName, cancellationToken)).ConfigureAwait(false);
+                async () => repository = await EnvironmentRepository.CloneAsync(repositoryUrl, environmentName, cancellationToken).ConfigureAwait(false)).ConfigureAwait(false);
 
+            BackupsCommand.ReportCreated(repository!.Git);
             ConsoleReporter.Success($"Cloned repository and checked out environment '{environmentName}'.");
         }));
     }

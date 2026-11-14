@@ -175,6 +175,11 @@ Syntax:
 Commands:
   init        Initializes a new local environment configuration.
   clone       Clones the environment configuration.
+  setup       Guides interactive environment setup.
+  status      Shows local and remote synchronization state.
+  remote      Configures the origin remote.
+  environment Lists known environments.
+  backups     Lists and restores files preserved during clone or switch.
   variable    Manage environment variables and configurations.
   settings   Manage key-value settings stored in config.yml.
   tools      Manage tools and configurations.
@@ -300,6 +305,7 @@ Subcommands:
   remove Removes an existing tool or configuration.
   list   Lists all tools and configurations.
   update Updates an existing tool or configuration.
+  apply  Reviews and selectively installs recorded tools.
 ```
 
 ##### Add Subcommand
@@ -314,6 +320,13 @@ Syntax:
 Arguments:
   tool_name    The name of the tool to add.
 ```
+
+##### Apply Subcommand
+
+`tools apply --preview` lists recorded installation actions without executing them.
+Without `--preview`, users select tools interactively and confirm each installation.
+Custom installation commands are shown and require explicit confirmation. Installed
+state is not detected.
 
 ##### Remove Subcommand
 
@@ -362,7 +375,7 @@ Description:
   Adds a new file or configuration to the repository.
 
 Syntax:
-  EnvManager files add [file_name]
+  EnvManager files add <file_name>...
 
 Arguments:
   file_name    The path of the file to add, relative to the current working directory
@@ -370,7 +383,8 @@ Arguments:
 ```
 
 Relative paths are resolved from the current working directory. The resolved file must
-be inside the home directory, which is the repository's work tree. Adding a file stages
+be inside the home directory, which is the repository's work tree. Common credential
+filenames produce a warning. Adding a file stages
 it without committing or pushing. Run `EnvManager push` to
 commit and publish staged changes. A remote is not required to add a file.
 Other commands that create commits, including configuration updates and `shells add`,
@@ -390,6 +404,7 @@ Arguments:
 ```
 
 Removing a file stages it for removal without committing or deleting the local file.
+Explicit relative paths are resolved from the current working directory.
 Run `EnvManager push` to commit and publish the removal.
 When `file_name` is omitted, EnvManager prompts for a tracked file and asks for
 confirmation before staging its removal. This selection requires an interactive terminal.
@@ -398,11 +413,11 @@ confirmation before staging its removal. This selection requires an interactive 
 
 ```bash
 Syntax:
-  EnvManager files edit
+  EnvManager files edit [file_name]
 ```
 
-Prompts for a tracked file and opens it using the executable configured in the
-`editor` setting. This requires an interactive terminal and a configured editor.
+Opens a tracked file using the executable configured in the `editor` setting. When
+omitted, the path is selected interactively.
 
 ##### Copy-to-Environment Subcommand
 
@@ -411,13 +426,13 @@ Description:
   Copies a tracked file to another environment.
 
 Syntax:
-  EnvManager files copy-to-environment
+  EnvManager files copy-to-environment [file] [environment] [--publish]
 ```
 
-Prompts for a tracked file and a different known environment. The file's current
+Prompts for any omitted argument in a terminal. The file's current
 working-tree contents are committed on the target branch without switching the active
-environment or changing its working tree. Switch to the target environment and run
-`EnvManager push` to publish the copy. This requires an interactive terminal.
+environment or changing its working tree. `--publish` pushes the target branch,
+including any earlier local commits.
 
 ##### List Subcommand
 
@@ -462,12 +477,10 @@ It shall ask for confirmation, defaulting to no, unless `--yes` is supplied. Dec
 leaves the local branch, index, and work tree unchanged. The confirmed pull applies the
 exact fetched commit shown in the preview.
 
-Pull shall fetch the current environment's branch from `origin` and replace the local
-branch, index, and work tree with that remote version, even when their histories have
-diverged. Local-only commits and staged or unstaged changes to tracked files are
-discarded. Untracked files or directories obstructing remote tracked paths can also be
-overwritten or removed; unrelated untracked files are left alone. Pull does not back up
-these changes. If the fetch fails, the local branch, index, and work tree remain unchanged.
+Pull shall fetch the current environment's branch from `origin` and only fast-forward.
+Git refuses divergent histories and conflicting local or untracked files. `--yes`
+does not bypass these safeguards. If the fetch fails, the local branch, index, and work
+tree remain unchanged.
 
 #### Switch Command
 
@@ -552,10 +565,9 @@ Possible shells include:
 Use `shells add <shell>` to replace each shell profile (the file loaded directly by the shell, such as `~/.bashrc`) with an EnvManager loader. The loader shall load addon files from `$HOME/.EnvManager/<shell>/`; existing shell profile contents shall be preserved in the `00_Profile` addon file with the shell's corresponding script extension. For bash and zsh use `.sh`, for fish `.fish`, for PowerShell `.ps1`, and for CMD `.cmd`. The `00_Profile` addon file shall not be copied to the shell-profile backup directory. `shells remove <shell>` shall restore backed-up shell profiles or remove unmodified loaders, and shall remove the EnvManager-created addon file while leaving the `00_Profile` addon file in the shell directory. Installation shall stage shell profile replacements and addon files, then roll back all changed files if any step fails. Addon files are executable content; review and trust repository contents before enabling integration.
 
 When a shell profile or addon file is not tracked in the current environment, `shells add` shall
-commit it and push the current branch to `origin`. Existing tracked files shall not
-be staged again by this operation, though any already staged changes are included in
-the commit. A failed push shall be reported and leave the local commit available for a
-later `push`; pushing also publishes any earlier local commits.
+commit it locally. Existing tracked files shall not be staged again by this operation,
+though any already staged changes are included in the commit. Publishing requires an
+explicit `push`.
 
 The installed shell profile shall only load addon files from its shell directory. EnvManager's executable directory shall be added to `PATH` by a separate `01_EnvManager` addon file in that directory. For each shell, addon files shall use the extension listed above.
 

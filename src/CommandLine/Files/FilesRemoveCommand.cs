@@ -7,6 +7,7 @@
 using System;
 using System.Collections.Generic;
 using System.CommandLine;
+using System.IO;
 using System.Threading.Tasks;
 
 using EnvManager.Configuration;
@@ -61,6 +62,8 @@ public sealed class FilesRemoveCommand : Command
                     choices => AnsiConsole.Prompt(
                         new SelectionPrompt<string>()
                             .Title("Select a file to remove")
+                            .EnableSearch()
+                            .UseConverter(Markup.Escape)
                             .PageSize(10)
                             .AddChoices(choices)));
 
@@ -72,6 +75,8 @@ public sealed class FilesRemoveCommand : Command
                     ConsoleReporter.Info("File removal canceled.");
                     return;
                 }
+
+                fileName = Path.Combine(EnvManagerPaths.HomeDirectory.FullName, fileName);
             }
 
             await repository.RemoveFileAsync(fileName, cancellationToken).ConfigureAwait(false);

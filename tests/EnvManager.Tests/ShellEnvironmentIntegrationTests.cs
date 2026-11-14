@@ -37,6 +37,7 @@ public sealed class ShellEnvironmentIntegrationTests
             string gitDirectory = Path.Combine(home, ".EnvManager", "repo");
             await RunGitSuccessAsync(home, $"--git-dir={gitDirectory}", $"--work-tree={home}", "remote", "add", "origin", remote);
             await RunEnvSuccessAsync(home, "shells", "add", "bash", "--yes");
+            await RunEnvSuccessAsync(home, "push", "--yes");
 
             string generatedExports = Path.Combine(home, ".EnvManager", "bash", "00-envmanager-variables.sh");
             await Assert.That(File.ReadAllText(generatedExports)).Contains("export GREETING='local'");

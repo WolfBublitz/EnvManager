@@ -282,7 +282,7 @@ public sealed class EnvironmentRepository
     /// <param name="cancellationToken">A token to cancel the operation.</param>
     public async Task RemoveFileAsync(string fileName, CancellationToken cancellationToken = default)
     {
-        string relativePath = ResolveRelativePath(fileName, EnvManagerPaths.HomeDirectory.FullName);
+        string relativePath = ResolveRelativePath(fileName, Environment.CurrentDirectory);
 
         if (!await this.Git.IsTrackedAsync(relativePath, cancellationToken).ConfigureAwait(false))
         {
@@ -399,7 +399,7 @@ public sealed class EnvironmentRepository
         return $"Update {changes.Count} files.";
     }
 
-    /// <summary>Replaces the current environment with the remote branch, discarding local changes and divergent commits.</summary>
+    /// <summary>Fast-forwards the current environment to the remote branch when safe.</summary>
     /// <param name="cancellationToken">A token to cancel the operation.</param>
     public Task PullAsync(CancellationToken cancellationToken = default)
         => this.Git.PullAsync(cancellationToken);
@@ -418,7 +418,7 @@ public sealed class EnvironmentRepository
     /// <exception cref="ConfigurationException">
     /// Thrown when the resolved path falls outside of the home directory.
     /// </exception>
-    private static string ResolveRelativePath(string fileName, string baseDirectory)
+    internal static string ResolveRelativePath(string fileName, string baseDirectory)
     {
         string homeDirectory = ResolveDirectoryPath(EnvManagerPaths.HomeDirectory.FullName);
 
