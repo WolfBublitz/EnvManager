@@ -254,6 +254,49 @@ public sealed class GitClient
             .Contains("origin", StringComparer.Ordinal);
     }
 
+    /// <summary>Compares the current environment branch with its <c>origin</c> branch.</summary>
+    public async Task<(bool RemoteConfigured, bool BranchPublished, int Ahead, int Behind, bool Diverged, bool Unknown)> GetRemoteSyncStateAsync(
+        string branch,
+        CancellationToken cancellationToken = default)
+    {
+        if (!await this.HasRemoteAsync(cancellationToken).ConfigureAwait(false))
+        {
+            return (false, false, 0, 0, false, false);
+        }
+
+        GitCommandResult remote = await this.RunAsync(
+            ["ls-remote", "--heads", "origin", $"refs/heads/{branch}"],
+            cancellationToken).ConfigureAwait(false);
+        if (!remote.Succeeded)
+        {
+            return (true, false, 0, 0, false, true);
+        }
+
+        if (string.IsNullOrWhiteSpace(remote.StandardOutput))
+        {
+            return (true, false, 0, 0, false, false);
+        }
+
+        string remoteCommit = remote.StandardOutput.Trim().Split('\t')[0];
+        GitCommandResult counts = await this.RunAsync(
+            ["rev-list", "--left-right", "--count", $"HEAD...{remoteCommit}"],
+            cancellationToken).ConfigureAwait(false);
+        if (!counts.Succeeded)
+        {
+            return (true, true, 0, 0, false, true);
+        }
+
+        string[] values = counts.StandardOutput.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
+        if (values.Length != 2
+            || !int.TryParse(values[0], out int ahead)
+            || !int.TryParse(values[1], out int behind))
+        {
+            return (true, true, 0, 0, false, true);
+        }
+
+        return (true, true, ahead, behind, ahead > 0 && behind > 0, false);
+    }
+
     /// <summary>Adds or updates the origin remote.</summary>
     public async Task SetRemoteAsync(string url, CancellationToken cancellationToken = default)
     {

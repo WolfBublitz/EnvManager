@@ -185,6 +185,7 @@ Commands:
   push                        Pushes the current environment configuration to the remote repository.
   pull                        Pulls the latest environment configuration from the remote repository.
   switch <environment_name>   Switches to a different environment configuration.
+  sync [--yes] [--dry-run] [--pull-only|--push-only] Safely pulls and pushes the current environment.
   environment list           Lists available environments.
   remote set <url>           Adds or changes the synchronization remote.
   status                     Shows the current environment and synchronization state.
@@ -235,6 +236,8 @@ EnvManager tools remove <tool_name>
 EnvManager tools update [tool_name]   # Updates one tool, or every tracked tool when omitted
 EnvManager tools list
 EnvManager tools apply [--preview]   # Review and selectively install recorded tools
+EnvManager tools apply --dry-run    # Preview machine setup without executing actions
+EnvManager tools apply --yes         # Apply detected/configured tools without prompts
 ```
 
 The package manager is auto-detected from your operating system and installed tooling
@@ -268,7 +271,9 @@ put secrets in commands or variable values; configuration is stored in plaintext
 be committed or pushed.
 
 On another machine, `tools apply --preview` lists recorded installation actions without
-running them. `tools apply` lets you select tools and confirms each installation; custom
+running them and labels executable tools detected on the current machine. `tools apply`
+lets you select tools and confirms each installation; `tools apply --yes` applies missing
+tools without prompts, while `tools apply --dry-run` previews without changes. Custom
 commands are displayed and require separate trust. Installed state is not detected, so
 review the list before choosing tools.
 
@@ -339,6 +344,8 @@ can also include already staged files in their commits.
 ```bash
 EnvManager push    # List pending changes, confirm, commit (auto-generated message) and push (-y skips the prompt)
 EnvManager pull    # Preview and fast-forward safely (-y skips the prompt)
+EnvManager sync    # Preview/pull/push safely as one workflow (-y applies safe steps)
+EnvManager sync --dry-run # Fetch and preview without applying changes
 EnvManager switch [environment_name] [--create]   # Switch or select an environment
 ```
 

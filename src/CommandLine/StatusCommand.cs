@@ -36,6 +36,9 @@ public sealed class StatusCommand : Command
             if (!await repository.Git.HasRemoteAsync(cancellationToken).ConfigureAwait(false))
             {
                 ConsoleReporter.Info("Remote: not configured. Run 'EnvManager remote set <url>' to connect one.");
+                ConsoleReporter.Info(changes.Count == 0
+                    ? "Next action: configure the remote, then run 'EnvManager push'."
+                    : "Next action: configure the remote and commit/push these changes with 'EnvManager push'.");
                 return;
             }
 
@@ -46,47 +49,44 @@ public sealed class StatusCommand : Command
 
     private static async Task ReportRemoteStateAsync(GitClient git, string environment, CancellationToken cancellationToken)
     {
-        GitCommandResult remote = await git.RunAsync(["ls-remote", "--heads", "origin", $"refs/heads/{environment}"], cancellationToken).ConfigureAwait(false);
-        if (!remote.Succeeded)
+        (bool remoteConfigured, bool branchPublished, int ahead, int behind, bool diverged, bool unknown) =
+            await git.GetRemoteSyncStateAsync(environment, cancellationToken).ConfigureAwait(false);
+        if (!remoteConfigured)
+        {
+            ConsoleReporter.Info("Remote: not configured. Run 'EnvManager remote set <url>' to connect one.");
+            return;
+        }
+        if (unknown)
         {
             ConsoleReporter.Warning("Could not check the remote synchronization state. Check your connection and Git credentials.");
             return;
         }
-
-        string line = remote.StandardOutput.Trim();
-        if (line.Length == 0)
+        if (!branchPublished)
         {
             ConsoleReporter.Info("The environment has not been published. Run 'EnvManager push'.");
             return;
         }
 
-        string remoteCommit = line.Split('\t')[0];
-        GitCommandResult counts = await git.RunAsync(["rev-list", "--left-right", "--count", $"HEAD...{remoteCommit}"], cancellationToken).ConfigureAwait(false);
-        if (!counts.Succeeded)
-        {
-            ConsoleReporter.Warning("Could not compare the remote commit with local history. Run 'EnvManager pull' to fetch and inspect it.");
-            return;
-        }
-
-        string[] values = counts.StandardOutput.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
-        if (values.Length != 2 || !int.TryParse(values[0], out int ahead) || !int.TryParse(values[1], out int behind))
-        {
-            ConsoleReporter.Warning("Git returned an unexpected synchronization status.");
-            return;
-        }
-
         ConsoleReporter.Info($"Synchronization: {ahead} local commit(s) ahead, {behind} remote commit(s) behind.");
-        if (ahead > 0 && behind > 0)
+        if (diverged)
         {
             ConsoleReporter.Warning("Local and remote histories have diverged; reconcile them before pulling or pushing.");
+            ConsoleReporter.Info("Next action: resolve the divergent histories with 'EnvManager sync' after reviewing them.");
         }
         else if (ahead > 0)
         {
             ConsoleReporter.Info("Run 'EnvManager push' to publish local commits.");
+            ConsoleReporter.Info("Next action: 'EnvManager sync' will push safely.");
         }
         else if (behind > 0)
         {
             ConsoleReporter.Info("Run 'EnvManager pull' to inspect incoming changes.");
+            ConsoleReporter.Info("Next action: 'EnvManager sync' will pull safely.");
+        }
+        else
+        {
+            ConsoleReporter.Success("Environment is synchronized.");
+            ConsoleReporter.Info("Next action: 'EnvManager tools apply --preview' to review machine setup.");
         }
     }
 }

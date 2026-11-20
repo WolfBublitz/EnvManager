@@ -86,6 +86,21 @@ public static class ConsoleReporter
             .ConfigureAwait(false);
     }
 
+    /// <summary>Runs a value-producing operation with a status message.</summary>
+    public static async Task<T> RunWithStatusAsync<T>(string message, Func<Task<T>> action)
+    {
+        if (!AnsiConsole.Profile.Capabilities.Interactive)
+        {
+            Info($"⏳ {message}");
+            return await action().ConfigureAwait(false);
+        }
+
+        return await AnsiConsole.Status()
+            .Spinner(Spinner.Known.Dots)
+            .StartAsync($"[blue]⏳ {Markup.Escape(message)}[/]", async _ => await action().ConfigureAwait(false))
+            .ConfigureAwait(false);
+    }
+
     /// <summary>Runs a sequence of operations with a progress bar when the output is interactive.</summary>
     public static async Task RunProgressAsync<T>(
         string message,

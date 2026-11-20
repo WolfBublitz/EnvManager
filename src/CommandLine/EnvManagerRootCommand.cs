@@ -32,6 +32,7 @@ public sealed class EnvManagerRootCommand : RootCommand
         this.Add(new CloneCommand());
         this.Add(new InitCommand());
         this.Add(new SetupCommand());
+        this.Add(new SyncCommand());
         this.Add(new VariableCommand());
         this.Add(new SettingsCommand());
         this.Add(new ToolsCommand());

@@ -17,7 +17,11 @@ public sealed class ToolsApplyCommand : Command
         : base("apply", "Review and selectively install tools from this environment.")
     {
         Option<bool> previewOption = new("--preview") { Description = "Show recorded installation actions without running them." };
+        Option<bool> dryRunOption = new("--dry-run") { Description = "Preview installation actions without changing the system." };
+        Option<bool> yesOption = new("--yes", "-y") { Description = "Apply missing detected tools without prompts." };
         this.Add(previewOption);
+        this.Add(dryRunOption);
+        this.Add(yesOption);
         this.SetAction((parseResult, cancellationToken) => CommandExecutor.RunAsync(async () =>
         {
             EnvironmentConfiguration configuration = await EnvironmentRepository.OpenExisting()
@@ -28,17 +32,50 @@ public sealed class ToolsApplyCommand : Command
                 return;
             }
 
-            ConsoleReporter.Info("Recorded installation actions (installed state is not checked):");
+            bool dryRun = parseResult.GetValue(dryRunOption);
+            bool assumeYes = parseResult.GetValue(yesOption);
+
+            ConsoleReporter.Info("Recorded installation actions:");
             foreach (ToolDefinition tool in configuration.Tools)
             {
                 string action = tool.InstallCommand is not null
                     ? $"custom command: {tool.InstallCommand}"
                     : $"package manager: {tool.PackageManager ?? "auto-detect"}, version: {tool.Version ?? "latest"}";
-                ConsoleReporter.Info($"  {tool.Name}: {action}");
+                bool detected = tool.InstallCommand is null
+                    && await ProcessRunner.IsAvailableAsync(tool.Name, ["--version"], cancellationToken).ConfigureAwait(false);
+                string state = detected ? " [detected]" : " [not detected]";
+                ConsoleReporter.Info($"  {tool.Name}: {action}{state}");
             }
 
-            if (parseResult.GetValue(previewOption))
+            if (parseResult.GetValue(previewOption) || dryRun)
             {
+                return;
+            }
+            if (assumeYes)
+            {
+                foreach (ToolDefinition tool in configuration.Tools)
+                {
+                    if (tool.InstallCommand is not null)
+                    {
+                        await CustomToolCommand.RunAsync(tool.InstallCommand, tool.Name, "install", assumeYes: true, cancellationToken).ConfigureAwait(false);
+                    }
+                    else
+                    {
+                        if (await ProcessRunner.IsAvailableAsync(tool.Name, ["--version"], cancellationToken).ConfigureAwait(false))
+                        {
+                            ConsoleReporter.Info($"Skipped '{tool.Name}' because its executable was detected.");
+                            continue;
+                        }
+
+                        IPackageManager manager = tool.PackageManager is null
+                            ? await PackageManagerFactory.DetectAsync(cancellationToken).ConfigureAwait(false)
+                            : PackageManagerFactory.GetByName(tool.PackageManager);
+                        await ConsoleReporter.RunPackageOperationAsync(manager, $"Installing '{tool.Name}' using '{manager.Name}'...",
+                            () => manager.InstallAsync(tool.Name, tool.Version, cancellationToken)).ConfigureAwait(false);
+                    }
+
+                    ConsoleReporter.Success($"Installed '{tool.Name}'.");
+                }
                 return;
             }
             if (!AnsiConsole.Profile.Capabilities.Interactive || Console.IsInputRedirected)
