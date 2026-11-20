@@ -34,14 +34,45 @@ public sealed class PushCommand : Command
         };
 
         this.Add(yesOption);
+        Option<bool> dryRunOption = new("--dry-run")
+        {
+            Description = "Preview the commit and remote state without committing or pushing.",
+        };
+        this.Add(dryRunOption);
 
         this.SetAction((parseResult, cancellationToken) => CommandExecutor.RunAsync(async () =>
         {
             bool skipConfirmation = parseResult.GetValue(yesOption);
+            bool dryRun = parseResult.GetValue(dryRunOption);
 
             EnvironmentRepository repository = EnvironmentRepository.OpenExisting();
             string environmentName = await repository.GetCurrentEnvironmentNameAsync(cancellationToken).ConfigureAwait(false);
             IReadOnlyList<(string Status, string Path)> changes = await repository.GetPendingChangesAsync(cancellationToken).ConfigureAwait(false);
+            (bool remoteConfigured, bool branchPublished, int ahead, int behind, bool diverged, bool unknown) =
+                await repository.Git.GetRemoteSyncStateAsync(environmentName, cancellationToken).ConfigureAwait(false);
+            if (!remoteConfigured)
+            {
+                throw new EnvManager.Exceptions.GitCommandException(
+                    "push",
+                    1,
+                    "No 'origin' remote is configured. Run 'EnvManager remote set <url>' first.");
+            }
+            if (unknown)
+            {
+                throw new EnvManager.Exceptions.GitCommandException(
+                    "push",
+                    1,
+                    "Could not verify the remote synchronization state. Check your connection and Git credentials.");
+            }
+            if (behind > 0 || diverged)
+            {
+                throw new EnvManager.Exceptions.GitCommandException(
+                    "push",
+                    1,
+                    diverged
+                        ? "The local and remote histories have diverged. Run 'EnvManager pull' to inspect and reconcile them before pushing."
+                        : "The remote environment is ahead of the local branch. Run 'EnvManager pull' before pushing.");
+            }
 
             if (changes.Count > 0)
             {
@@ -59,6 +90,12 @@ public sealed class PushCommand : Command
                     AnsiConsole.MarkupLineInterpolated($"  [grey]{label,-9}[/] {path}");
                 }
 
+                if (dryRun)
+                {
+                    ConsoleReporter.Info("Dry run: no changes were committed or pushed.");
+                    return;
+                }
+
                 if (!skipConfirmation && !await ConsoleReporter.ConfirmAsync(
                     "Commit these changes and push?",
                     defaultValue: false,
@@ -67,6 +104,11 @@ public sealed class PushCommand : Command
                     ConsoleReporter.Warning("Push cancelled. No changes were committed.");
                     return;
                 }
+            }
+            else if (dryRun)
+            {
+                ConsoleReporter.Info("Dry run: no changes were committed or pushed.");
+                return;
             }
             else if (!skipConfirmation && !await ConsoleReporter.ConfirmAsync(
                 $"No uncommitted changes. Push environment '{environmentName}' to the remote repository?",

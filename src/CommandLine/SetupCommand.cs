@@ -105,7 +105,16 @@ public sealed class SetupCommand : Command
                 }
             }
 
-            ConsoleReporter.Info("Run 'EnvManager status' to inspect the environment. Publishing requires 'EnvManager push'.");
+            if (await ConsoleReporter.ConfirmAsync("Apply recorded tools for this machine now?", defaultValue: false, cancellationToken).ConfigureAwait(false))
+            {
+                int result = await new EnvManagerRootCommand().Parse(["tools", "apply"]).InvokeAsync().ConfigureAwait(false);
+                if (result != 0)
+                {
+                    throw new ConfigurationException("Tool application failed; the environment setup is still available.");
+                }
+            }
+
+            ConsoleReporter.Info("Run 'EnvManager status' to inspect the environment. Run 'EnvManager sync' to pull and push safely.");
         }));
     }
 }

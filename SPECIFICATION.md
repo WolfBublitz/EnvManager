@@ -186,6 +186,7 @@ Commands:
   shells      Manage supported shell profiles and addon files.
   push        Push the current environment configuration to the remote repository.
   pull        Pull the latest environment configuration from the remote repository.
+  sync        Safely pull and push the current environment in one workflow.
   switch      Switch to a different environment configuration.
   update      Check for and install a newer EnvManager version.
 ```

@@ -32,6 +32,11 @@ public sealed class PullCommand : Command
             Description = "Apply the pull without asking for confirmation.",
         };
         this.Add(yesOption);
+        Option<bool> dryRunOption = new("--dry-run")
+        {
+            Description = "Fetch and preview the pull without applying it.",
+        };
+        this.Add(dryRunOption);
 
         this.SetAction((parseResult, cancellationToken) => CommandExecutor.RunAsync(async () =>
         {
@@ -64,6 +69,11 @@ public sealed class PullCommand : Command
             }
 
             ConsoleReporter.Info("Pull only fast-forwards; Git will refuse conflicting changes and divergent histories.");
+            if (parseResult.GetValue(dryRunOption))
+            {
+                ConsoleReporter.Info("Dry run: no local changes were applied.");
+                return;
+            }
             if (!parseResult.GetValue(yesOption) && !await ConsoleReporter.ConfirmAsync(
                 "Apply this pull?",
                 defaultValue: false,
